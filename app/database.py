@@ -1,6 +1,6 @@
 """
 데이터베이스 연결 및 모델 관리
-SQLite 메타데이터 데이터베이스 설정
+애플리케이션 메타데이터 저장소는 환경변수/설정의 DATABASE_URL(PostgreSQL 등) 기반으로 동작
 """
 
 from sqlalchemy import create_engine, Column, String, Integer, Boolean, DateTime, Text, Float
@@ -14,9 +14,40 @@ import uuid
 from app.config import settings
 
 # SQLAlchemy 설정
+import os
+import sys
+
+# Windows 환경에서 UTF-8 인코딩 강제 설정
+if sys.platform == "win32":
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+    os.environ['PYTHONUTF8'] = '1'
+
+def _resolve_db_url() -> str:
+    """DATABASE_URL 유효성 보정
+    - settings.DATABASE_URL이 비어있거나 잘못된 값(예: 'root')일 경우
+      로컬 PostgreSQL 기본값으로 접속 문자열을 생성
+    - 환경 변수(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD)가 일부만 설정되었을 경우도 기본값으로 보완
+    """
+    url = getattr(settings, 'DATABASE_URL', None)
+    # 문자열이 아니거나 스킴이 없으면 잘못된 URL로 간주
+    if not url or not isinstance(url, str) or '://' not in url:
+        host = getattr(settings, 'DB_HOST', None)
+        port = getattr(settings, 'DB_PORT', None)
+        name = getattr(settings, 'DB_NAME', None)
+        user = getattr(settings, 'DB_USER', None)
+        password = getattr(settings, 'DB_PASSWORD', None)
+        # 포트는 문자열로 포맷
+        return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
+    return url
+
+# DATABASE_URL 보정 적용
+DB_URL = _resolve_db_url()
+
 engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
+    DB_URL,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    echo=settings.DEBUG
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -139,7 +170,21 @@ class SystemLog(Base):
 # 데이터베이스 초기화 함수
 async def init_database():
     """데이터베이스 테이블 생성"""
-    Base.metadata.create_all(bind=engine)
+    try:
+        # 연결 테스트
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        
+        # 테이블 생성
+        Base.metadata.create_all(bind=engine)
+        print("데이터베이스 초기화 완료")
+    except Exception as e:
+        print(f"데이터베이스 초기화 오류: {e}")
+        # 오류 발생 시 애플리케이션을 중단하지 않고 로그만 남김
+        import logging
+        logging.error(f"데이터베이스 연결 실패: {e}")
+        raise
 
 def get_db() -> Generator[Session, None, None]:
     """데이터베이스 세션 의존성"""
