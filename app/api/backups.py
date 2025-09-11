@@ -3,12 +3,13 @@
 백업 실행, 조회, 복원, 통계 기능
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import logging
 
 from app.database import get_db, Backup, get_backups_by_database, create_backup_record
+from app.core.backup_engine import BackupEngine  # 백업 엔진
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -72,7 +73,8 @@ async def get_backup(
 async def create_backup(
     database_id: str,
     backup_data: dict,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = None,
 ):
     """새로운 백업을 실행합니다."""
     try:
@@ -86,8 +88,11 @@ async def create_backup(
             status="pending"
         )
         
-        # TODO: 실제 백업 작업을 백그라운드에서 실행
-        logger.info(f"백업 작업 시작: {new_backup.id}")
+        # 실제 백업 작업을 백그라운드에서 실행
+        # - FastAPI BackgroundTasks를 사용하여 요청과 분리
+        if background_tasks is not None:
+            background_tasks.add_task(BackupEngine().run_backup, database_id, new_backup.id)
+        logger.info(f"백업 작업 시작(백그라운드): {new_backup.id}")
         
         return {
             "message": "백업이 시작되었습니다.",
