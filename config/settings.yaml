@@ -1,0 +1,32 @@
+# PostgreSQL 백업 시스템 기본 설정 파일
+# 이 파일을 복사하여 settings.yaml로 사용하세요
+
+# 애플리케이션 기본 설정
+app:
+  name: "Cloud Database Backup Manager"
+  version: "1.0.0"
+  debug: false
+  host: "0.0.0.0"
+  port: 8000
+
+# 백업 기본 설정
+backup:
+  base_path: "./data/backups"
+  temp_path: "./data/temp"
+  max_parallel_jobs: 3
+  default_compression: "gzip"
+  default_encryption: true
+
+# 보존 정책
+retention:
+  default_policy:
+    daily: 30 # 30일
+    weekly: 12 # 12주
+    monthly: 12 # 12개월
+
+# 로깅 설정
+logging:
+  level: "INFO"
+  file_path: "./data/logs/app.log"
+  max_size: "10MB"
+  backup_count: 5
