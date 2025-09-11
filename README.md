@@ -377,7 +377,6 @@ sudo systemctl start backup-manager
 
 - 이슈 리포트: [GitHub Issues](https://github.com/your-org/LocalBackUpManager/issues)
 - 문서: [프로젝트 문서](docs/)
-- 이메일: support@yourcompany.com
 
 ## 로드맵
 
@@ -399,12 +398,12 @@ sudo systemctl start backup-manager
 
 - 1.3 PostgreSQL 메타데이터 데이터베이스 설계 및 구현
 
-  - [ ] PostgreSQL 데이터베이스 스키마 설계
-  - [ ] SQLAlchemy 모델 정의 (UUID, JSONB 활용)
-  - [ ] Alembic 마이그레이션 시스템 구축
-  - [ ] 데이터베이스 초기화 스크립트 작성
-  - [ ] 트리거 및 뷰 생성
-  - [ ] 인덱스 최적화 적용
+  - [x] PostgreSQL 데이터베이스 스키마 설계
+  - [x] SQLAlchemy 모델 정의 (UUID, JSONB 활용)
+  - [x] Alembic 마이그레이션 시스템 구축
+  - [x] 데이터베이스 초기화 스크립트 작성
+  - [x] 트리거 및 뷰 생성
+  - [x] 인덱스 최적화 적용
 
 - 1.4 기본 백업 엔진 구현 (pg_dump 기반)
 

@@ -3,7 +3,8 @@
 애플리케이션 메타데이터 저장소는 환경변수/설정의 DATABASE_URL(PostgreSQL 등) 기반으로 동작
 """
 
-from sqlalchemy import create_engine, Column, String, Integer, Boolean, DateTime, Text, Float
+from sqlalchemy import create_engine, Column, String, Integer, Boolean, DateTime, Text, Float, Index
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.sql import func
@@ -160,12 +161,27 @@ class SystemLog(Base):
     level = Column(String(10), nullable=False)      # debug, info, warning, error, critical
     component = Column(String(50), nullable=False)  # backup_engine, scheduler, api, etc.
     message = Column(Text, nullable=False)
-    details = Column(Text)  # JSON 형태의 상세 정보
+    # Postgres JSONB 컬럼으로 상세 정보를 저장 (조회/인덱싱 최적화)
+    details = Column(JSONB)  # JSON 형태의 상세 정보
     database_id = Column(String)
     backup_id = Column(String)
     user_id = Column(String(100))  # 향후 사용자 관리용
     ip_address = Column(String(45))
     created_at = Column(DateTime, default=func.now())
+
+# -----------------------------
+# 인덱스 정의 (조회 성능 최적화)
+# -----------------------------
+# Backup: DB별 최신 정렬/상태 필터 빈번 사용 가정
+Index('ix_backups_database_id_created_at', Backup.database_id, Backup.created_at)
+Index('ix_backups_status_created_at', Backup.status, Backup.created_at)
+
+# Schedule: 활성/다음 실행 조회 최적화
+Index('ix_schedules_active_next_run', Schedule.is_active, Schedule.next_run)
+
+# SystemLog: 레벨/컴포넌트/시간대별 조회 및 JSONB GIN 인덱스
+Index('ix_system_logs_level_component_created_at', SystemLog.level, SystemLog.component, SystemLog.created_at)
+Index('ix_system_logs_details_gin', SystemLog.details, postgresql_using='gin')
 
 # 데이터베이스 초기화 함수
 async def init_database():
