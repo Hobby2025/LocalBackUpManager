@@ -7,7 +7,6 @@
 ## 🗄️ 데이터베이스 설정
 
 ### 연결 정보
-
 ```yaml
 # config/metadata_db.yaml
 metadata_database:
@@ -22,7 +21,6 @@ metadata_database:
 ```
 
 ### 환경변수
-
 ```bash
 # .env
 METADATA_DB_PASSWORD=your_secure_password
@@ -32,7 +30,6 @@ METADATA_DB_URL=postgresql://backup_admin:password@localhost:5432/backup_metadat
 ## 📊 테이블 스키마
 
 ### 1. databases (데이터베이스 정보)
-
 ```sql
 CREATE TABLE databases (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -61,7 +58,6 @@ CREATE UNIQUE INDEX idx_databases_name ON databases(name);
 ```
 
 ### 2. backup_configs (백업 설정)
-
 ```sql
 CREATE TABLE backup_configs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -84,7 +80,6 @@ CREATE UNIQUE INDEX idx_backup_configs_database ON backup_configs(database_id);
 ```
 
 ### 3. backups (백업 실행 이력)
-
 ```sql
 CREATE TABLE backups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -118,7 +113,6 @@ CREATE INDEX idx_backups_completed_at ON backups(completed_at);
 ```
 
 ### 4. schedules (스케줄 정보)
-
 ```sql
 CREATE TABLE schedules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -143,7 +137,6 @@ CREATE INDEX idx_schedules_next_run ON schedules(next_run);
 ```
 
 ### 5. notifications (알림 이력)
-
 ```sql
 CREATE TABLE notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -170,7 +163,6 @@ CREATE INDEX idx_notifications_created_at ON notifications(created_at);
 ```
 
 ### 6. system_logs (시스템 로그)
-
 ```sql
 CREATE TABLE system_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -194,7 +186,6 @@ CREATE INDEX idx_system_logs_details ON system_logs USING GIN(details);
 ```
 
 ### 7. backup_statistics (백업 통계)
-
 ```sql
 CREATE TABLE backup_statistics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -219,7 +210,6 @@ CREATE INDEX idx_backup_statistics_date ON backup_statistics(date);
 ## 🔧 초기 데이터 및 함수
 
 ### 트리거 함수 (updated_at 자동 업데이트)
-
 ```sql
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -247,11 +237,10 @@ CREATE TRIGGER update_backup_statistics_updated_at BEFORE UPDATE ON backup_stati
 ```
 
 ### 뷰 (자주 사용되는 쿼리)
-
 ```sql
 -- 데이터베이스별 최신 백업 상태
 CREATE VIEW v_latest_backup_status AS
-SELECT
+SELECT 
     d.id as database_id,
     d.name,
     d.display_name,
@@ -263,24 +252,24 @@ SELECT
     b.completed_at as last_backup_time,
     b.file_size,
     b.duration_seconds,
-    CASE
+    CASE 
         WHEN b.completed_at > CURRENT_TIMESTAMP - INTERVAL '24 hours' THEN 'recent'
         WHEN b.completed_at > CURRENT_TIMESTAMP - INTERVAL '7 days' THEN 'normal'
         ELSE 'outdated'
     END as backup_freshness
 FROM databases d
 LEFT JOIN LATERAL (
-    SELECT * FROM backups
-    WHERE database_id = d.id
+    SELECT * FROM backups 
+    WHERE database_id = d.id 
     AND status = 'completed'
-    ORDER BY completed_at DESC
+    ORDER BY completed_at DESC 
     LIMIT 1
 ) b ON true
 WHERE d.is_active = true;
 
 -- 백업 성공률 통계
 CREATE VIEW v_backup_success_rate AS
-SELECT
+SELECT 
     d.id as database_id,
     d.name,
     d.environment,
@@ -288,7 +277,7 @@ SELECT
     COUNT(CASE WHEN b.status = 'completed' THEN 1 END) as successful_backups,
     COUNT(CASE WHEN b.status = 'failed' THEN 1 END) as failed_backups,
     ROUND(
-        COUNT(CASE WHEN b.status = 'completed' THEN 1 END) * 100.0 /
+        COUNT(CASE WHEN b.status = 'completed' THEN 1 END) * 100.0 / 
         NULLIF(COUNT(b.id), 0), 2
     ) as success_rate
 FROM databases d
@@ -311,7 +300,6 @@ Base = declarative_base()
 
 class Database(Base):
     __tablename__ = 'databases'
-
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False, unique=True)
     display_name = Column(String(255), nullable=False)
@@ -331,7 +319,6 @@ class Database(Base):
 
 class Backup(Base):
     __tablename__ = 'backups'
-
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     database_id = Column(UUID(as_uuid=True), nullable=False)
     backup_type = Column(String(20), nullable=False)
@@ -353,7 +340,6 @@ class Backup(Base):
 ## 🔄 마이그레이션 관리
 
 ### Alembic 설정
-
 ```python
 # alembic/env.py
 from alembic import context
@@ -371,7 +357,7 @@ def run_migrations_online():
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection,
+            connection=connection, 
             target_metadata=target_metadata
         )
 
@@ -380,7 +366,6 @@ def run_migrations_online():
 ```
 
 ### 초기 마이그레이션 생성
-
 ```bash
 # 마이그레이션 초기화
 alembic init alembic
