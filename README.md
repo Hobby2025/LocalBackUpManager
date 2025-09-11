@@ -380,7 +380,7 @@ sudo systemctl start backup-manager
 
 ## 로드맵
 
-### Phase 1: 핵심 인프라 구축 (3-4주)
+### Phase 1: 핵심 인프라 구축
 
 - 1.1 프로젝트 구조 설정 및 개발 환경 구축
 
@@ -407,13 +407,13 @@ sudo systemctl start backup-manager
 
 - 1.4 기본 백업 엔진 구현 (pg_dump 기반)
 
-  - [ ] BackupEngine 클래스 기본 구조
-  - [ ] pg_dump 실행 로직 구현
-  - [ ] 백업 파일 압축 기능
-  - [ ] 기본 암호화 기능
-  - [ ] 백업 메타데이터 저장
+  - [x] BackupEngine 클래스 기본 구조
+  - [x] pg_dump 실행 로직 구현
+  - [x] 백업 파일 압축 기능
+  - [x] 기본 암호화 기능
+  - [x] 백업 메타데이터 저장
 
-### Phase 2: 다중 데이터베이스 지원 (2-3주)
+### Phase 2: 다중 데이터베이스 지원
 
 - 2.1 DatabaseManager 구현
 
@@ -428,7 +428,7 @@ sudo systemctl start backup-manager
   - [ ] 설정 검증 로직
   - [ ] 동적 설정 로드
 
-### Phase 3: 웹 인터페이스 개발 (3-4주)
+### Phase 3: 웹 인터페이스 개발
 
 - 3.1 대시보드 페이지
 
@@ -443,7 +443,7 @@ sudo systemctl start backup-manager
   - [ ] 연결 테스트 기능
   - [ ] DB별 설정 관리
 
-### Phase 4: 고급 기능 및 최적화 (2-3주)
+### Phase 4: 고급 기능 및 최적화
 
 - 4.1 증분 백업 구현
 
@@ -458,7 +458,7 @@ sudo systemctl start backup-manager
   - [ ] 메모리 사용량 최적화
   - [ ] 성능 벤치마크 테스트
 
-### Phase 5: 알림 및 모니터링 시스템 (2주)
+### Phase 5: 알림 및 모니터링 시스템
 
 - 5.1 알림 시스템 구현
 
@@ -473,7 +473,7 @@ sudo systemctl start backup-manager
   - [ ] 자동 리포트 생성
   - [ ] 알림 이력 관리
 
-### Phase 6: 보안 및 컴플라이언스 (2주)
+### Phase 6: 보안 및 컴플라이언스
 
 - 6.1 보안 강화
 
@@ -488,7 +488,7 @@ sudo systemctl start backup-manager
   - [ ] 규정 준수 리포트
   - [ ] 보안 정책 자동 적용
 
-### Phase 7: 테스트 및 배포 준비 (2주)
+### Phase 7: 테스트 및 배포 준비
 
 - 7.1 테스트 시스템
 

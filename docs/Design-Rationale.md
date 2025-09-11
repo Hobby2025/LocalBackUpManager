@@ -17,3 +17,9 @@
 - `app/database.py`의 모델은 UUID 키, 시간 필드, 상태/지표 컬럼으로 백업 이력 추적에 필요한 최소 스키마를 반영했습니다.
 - 조회 패턴 기반 인덱스와 `SystemLog.details`의 JSONB + GIN 인덱스를 적용해 운영 시 모니터링/탐색 비용을 절감했습니다.
 - Alembic(`alembic.ini`, `alembic/env.py`)을 통해 `alembic upgrade head`로 자동 스키마 최신화를 보장하고, 타입 변경 시 `USING` 절로 이행 안정성을 확보했습니다.
+
+## 1.4 기본 백업 엔진 구현 (pg_dump 기반)
+
+- `app/core/backup_engine.py`의 `BackupEngine`으로 pg_dump 실행·압축(gzip)·암호화(AES-256-GCM)·체크섬까지 단일 플로우로 구성했습니다.
+- `BackgroundTasks`로 API 요청과 비동기 실행을 분리해 사용자 응답성을 유지하고, 메타데이터(`file_path`,`checksum`,`duration_seconds` 등)를 즉시 기록합니다.
+- `ENCRYPTION_KEY(32자)` 검증과 `pg_dump_version` 기록으로 보안/재현가능성을 높였으며, 추후 비밀번호 암호화 저장/복호화 연계를 전제로 설계했습니다.
