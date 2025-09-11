@@ -7,7 +7,7 @@ import os
 import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
 # 환경변수 로드
@@ -22,7 +22,16 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     
     # 데이터베이스 설정
-    DATABASE_URL: str = "sqlite:///data/sqlite_metadata.db"
+    # 기본값은 PostgreSQL(psycopg2 동기 드라이버) 사용
+    # 환경변수 DATABASE_URL이 지정되면 해당 값을 우선 사용
+    DATABASE_URL: str = os.getenv("DATABASE_URL")
+    
+    # PostgreSQL 개별 설정 (DATABASE_URL이 없을 때 사용)
+    DB_HOST: str = os.getenv("DB_HOST")
+    DB_PORT: int = int(os.getenv("DB_PORT"))
+    DB_NAME: str = os.getenv("DB_NAME")
+    DB_USER: str = os.getenv("DB_USER")
+    DB_PASSWORD: str = os.getenv("DB_PASSWORD")
     
     # 백업 설정
     BACKUP_BASE_PATH: str = "./data/backups"
@@ -32,8 +41,8 @@ class Settings(BaseSettings):
     DEFAULT_ENCRYPTION: bool = True
     
     # 보안 설정
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
-    ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", "your-32-character-encryption-key")
+    SECRET_KEY: str = os.getenv("SECRET_KEY")
+    ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY")
     
     # 로깅 설정
     LOG_LEVEL: str = "INFO"
