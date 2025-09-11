@@ -300,7 +300,6 @@ Base = declarative_base()
 
 class Database(Base):
     __tablename__ = 'databases'
-    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False, unique=True)
     display_name = Column(String(255), nullable=False)
@@ -320,7 +319,6 @@ class Database(Base):
 
 class Backup(Base):
     __tablename__ = 'backups'
-    
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     database_id = Column(UUID(as_uuid=True), nullable=False)
     backup_type = Column(String(20), nullable=False)

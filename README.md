@@ -4,6 +4,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue.svg)](https://postgresql.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Hobby2025/LocalBackUpManager)
 
 ## 📋 개요
 
@@ -382,7 +383,7 @@ sudo systemctl start backup-manager
 
 ### Phase 1: 핵심 인프라 구축 (3-4주)
 
-- [ ] 기본 시스템 아키텍처
+- [x] 기본 시스템 아키텍처
 - [ ] 단일 DB 백업 기능
 - [ ] PostgreSQL 메타데이터 DB
 

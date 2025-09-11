@@ -83,7 +83,6 @@ LocalBackUpManager/
 ```python
 class BackupEngine:
     """백업 엔진 구현 시 준수사항"""
-    
     async def execute_full_backup(self, db_id: str) -> BackupResult:
         # 1. 사전 검증: DB 연결, 디스크 공간, 권한 확인
         # 2. 백업 실행: pg_dump 명령어 실행
@@ -117,7 +116,7 @@ databases:
       port: 5432
       database: "DB명"
       username: "사용자명"
-      password: "${ENV_VAR}"  # 환경변수 사용 필수
+      password: "${ENV_VAR}" # 환경변수 사용 필수
 ```
 
 ### 5.2 연결 관리 원칙
@@ -178,7 +177,6 @@ from cryptography.fernet import Fernet
 class EncryptionManager:
     def __init__(self, key: str):
         self.cipher = Fernet(key.encode())
-    
     def encrypt_file(self, file_path: str) -> str:
         # AES-256 암호화 구현
         # 암호화된 파일은 .encrypted 확장자 추가
@@ -374,12 +372,14 @@ def get_database_info(db_id: str):
 ## 📋 개발 체크리스트
 
 ### 코드 작성 전 확인사항
+
 - [ ] 기획서의 해당 섹션 요구사항 숙지
 - [ ] 관련 지침 및 표준 확인
 - [ ] 의존성 및 버전 호환성 검토
 - [ ] 보안 요구사항 확인
 
 ### 코드 작성 중 준수사항
+
 - [ ] 타입 힌트 사용
 - [ ] 한글 주석 작성
 - [ ] 에러 처리 구현
@@ -387,6 +387,7 @@ def get_database_info(db_id: str):
 - [ ] 테스트 코드 작성
 
 ### 코드 완료 후 검증사항
+
 - [ ] 단위 테스트 통과
 - [ ] 통합 테스트 통과
 - [ ] 코드 리뷰 완료
