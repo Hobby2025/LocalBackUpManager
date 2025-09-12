@@ -102,42 +102,80 @@ async def get_database_status(
 async def get_dashboard_data(db: Session = Depends(get_db)):
     """대시보드에 필요한 종합 데이터를 조회합니다."""
     try:
-        # 최근 7일간의 백업 통계
-        week_ago = datetime.now() - timedelta(days=7)
-        
-        # 일별 백업 통계
+        # 최근 7일간의 백업 통계 (당일 포함)
         daily_stats = []
         for i in range(7):
             day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=i)
             day_end = day_start + timedelta(days=1)
-            
+
+            # 수량 통계
             day_backups = db.query(Backup).filter(
                 Backup.created_at >= day_start,
                 Backup.created_at < day_end
             ).count()
-            
+
             day_successful = db.query(Backup).filter(
                 Backup.created_at >= day_start,
                 Backup.created_at < day_end,
                 Backup.status == "completed"
             ).count()
-            
+
+            day_failed = db.query(Backup).filter(
+                Backup.created_at >= day_start,
+                Backup.created_at < day_end,
+                Backup.status == "failed"
+            ).count()
+
+            # 평균 지표
+            avg_duration = db.query(func.avg(Backup.duration_seconds)).filter(
+                Backup.created_at >= day_start,
+                Backup.created_at < day_end,
+                Backup.duration_seconds.isnot(None)
+            ).scalar() or 0
+
+            avg_compression = db.query(func.avg(Backup.compression_ratio)).filter(
+                Backup.created_at >= day_start,
+                Backup.created_at < day_end,
+                Backup.compression_ratio.isnot(None)
+            ).scalar() or 0
+
             daily_stats.append({
                 "date": day_start.strftime("%Y-%m-%d"),
-                "total_backups": day_backups,
-                "successful_backups": day_successful
+                "total_backups": int(day_backups),
+                "successful_backups": int(day_successful),
+                "failed_backups": int(day_failed),
+                "avg_duration_seconds": round(float(avg_duration), 2) if avg_duration else 0,
+                "avg_compression_ratio": round(float(avg_compression), 2) if avg_compression else 0,
             })
-        
-        # 최근 백업 목록
-        recent_backups = db.query(Backup).order_by(
+
+        # 최근 백업 목록 (필요 필드만 직렬화)
+        recent_backups_rows = db.query(Backup).order_by(
             Backup.created_at.desc()
         ).limit(10).all()
-        
-        # 활성 데이터베이스 목록
-        active_databases = db.query(Database).filter(
-            Database.is_active == True
-        ).all()
-        
+        recent_backups = [
+            {
+                "id": row.id,
+                "database_id": row.database_id,
+                "status": row.status,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in recent_backups_rows
+        ]
+
+        # 활성 데이터베이스 목록 (필요 필드만 직렬화)
+        active_rows = db.query(Database).filter(Database.is_active == True).all()
+        active_databases = [
+            {
+                "id": it.id,
+                "name": it.name,
+                "display_name": it.display_name,
+                "environment": it.environment,
+                "priority": it.priority,
+                "connection_status": it.connection_status,
+            }
+            for it in active_rows
+        ]
+
         return {
             "daily_statistics": daily_stats,
             "recent_backups": recent_backups,
@@ -145,10 +183,11 @@ async def get_dashboard_data(db: Session = Depends(get_db)):
             "summary": {
                 "total_databases": len(active_databases),
                 "total_backups_week": sum(stat["total_backups"] for stat in daily_stats),
-                "successful_backups_week": sum(stat["successful_backups"] for stat in daily_stats)
+                "successful_backups_week": sum(stat["successful_backups"] for stat in daily_stats),
+                "failed_backups_week": sum(stat["failed_backups"] for stat in daily_stats),
             }
         }
-        
+
     except Exception as e:
         logger.error(f"대시보드 데이터 조회 오류: {e}")
         raise HTTPException(

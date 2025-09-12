@@ -35,3 +35,9 @@
 - `ConfigManager`를 확장해 `${ENV}` 환경변수 재귀 확장, 간단 캐시 및 mtime 기반 변경 감지/리로드(`needs_reload`, `reload_databases_config`)를 지원합니다.
 - `databases.yaml`에 대해 루트 `databases` 키와 각 항목의 필수 필드( name, host, port, database, username, password, environment, priority )를 검증하고 포트 타입을 확인합니다.
 - API로 설정 조회/검증/리로드를 제공해 운영 중 안전한 동적 적용 기반을 마련했습니다: `GET /api/databases/config`, `POST /api/databases/config/validate`, `POST /api/databases/config/reload`.
+
+## 3.1 대시보드 페이지
+
+- Bootstrap 5 기반 반응형 레이아웃과 다크 테마 토글, 로딩 스피너를 적용해 사용자 경험을 개선하고, 최근 백업·활성 DB·상태 배지 등 핵심 위젯을 구성했습니다.
+- Chart.js로 최근 7일 총/성공/실패 추이를 시각화하고, 일별 평균 소요 시간/압축률 보조차트를 추가해 백업 품질과 성능을 한 화면에서 파악할 수 있게 했습니다.
+- 백엔드 모니터링 API와 연계(`GET /api/monitoring/status`, `GET /api/monitoring/dashboard`)하여 10초 간격 자동 갱신 및 실패 상세 링크(`/api/backups?status_filter=failed`) 제공으로 운영 가시성을 강화했습니다.
