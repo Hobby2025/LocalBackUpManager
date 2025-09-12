@@ -138,6 +138,11 @@ async def dashboard(request: Request):
     """대시보드 HTML 페이지 렌더링"""
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
+@app.get("/databases", response_class=HTMLResponse)
+async def databases_page(request: Request):
+    """데이터베이스 관리 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("databases.html", {"request": request})
+
 @app.get("/api/health")
 async def health_check():
     """헬스체크 엔드포인트"""
