@@ -20,6 +20,38 @@
     {% set active_nav = 'dashboard' %} {% include '_partials/nav.html' %}
 
     <div class="container my-4">
+      <!-- 상단 퀵 액션: 알림 이력 / 보고서 생성 -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="m-0">대시보드</h2>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <a href="/notifications" class="btn btn-outline-primary btn-sm">알림 이력</a>
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#reportListModal">보고서 목록</button>
+          <div class="d-flex align-items-center gap-1">
+            <select id="sel-report-hours" class="form-select form-select-sm" style="width: 110px;">
+              <option value="1">1시간</option>
+              <option value="24" selected>24시간</option>
+              <option value="168">7일</option>
+            </select>
+            <select id="sel-report-status" class="form-select form-select-sm" style="width: 120px">
+              <option value="">상태:전체</option>
+              <option value="completed">성공만</option>
+              <option value="failed">실패만</option>
+            </select>
+            <div class="form-check form-check-inline ms-2">
+              <input class="form-check-input" type="checkbox" id="chk-report-notify" />
+              <label class="form-check-label" for="chk-report-notify">알림 전송</label>
+            </div>
+            <button
+              id="btn-generate-report"
+              class="btn btn-primary btn-sm"
+              type="button"
+            >
+              보고서 생성
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="report-result" class="small text-muted mb-3"></div>
       <!-- 시스템 상태 카드 -->
       <div class="row g-3">
         <div class="col-12 col-md-3">
@@ -138,6 +170,70 @@
         </div>
       </div>
 
+      <!-- 최근 1시간 요약 / 최근 알림 -->
+      <div class="row g-3 mt-1">
+        <div class="col-12 col-lg-6">
+          <div class="card h-100">
+            <div class="card-header">최근 1시간 요약</div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-6 col-md-3">
+                  <div class="small text-muted">총 백업</div>
+                  <div id="sum1h-total" class="fs-4 fw-semibold">0</div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="small text-muted">성공</div>
+                  <div id="sum1h-success" class="fs-4 fw-semibold">0</div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="small text-muted">실패</div>
+                  <div id="sum1h-failed" class="fs-4 fw-semibold">0</div>
+                </div>
+                <div class="col-6 col-md-3">
+                  <div class="small text-muted">성공률</div>
+                  <div id="sum1h-rate" class="fs-4 fw-semibold">0%</div>
+                </div>
+              </div>
+              <small id="sum1h-timestamp" class="text-muted">-</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-6">
+          <div class="card h-100">
+            <div
+              class="card-header d-flex justify-content-between align-items-center"
+            >
+              <span>최근 알림</span>
+              <a href="/notifications" class="btn btn-sm btn-outline-secondary"
+                >전체 보기</a
+              >
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                  <thead>
+                    <tr>
+                      <th>시각</th>
+                      <th>채널</th>
+                      <th>레벨</th>
+                      <th>상태</th>
+                      <th>제목</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recent-notif-body">
+                    <tr>
+                      <td colspan="5" class="text-center text-muted">
+                        데이터 로드 중...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 최근 백업 / 활성 DB -->
       <div class="row g-3 mt-1">
         <div class="col-12 col-lg-6">
@@ -189,5 +285,113 @@
     <!-- 대시보드 스크립트 -->
     <script src="/static/js/common.js?v=20250912"></script>
     <script src="/static/js/dashboard.js"></script>
+
+    <!-- 알림 상세 모달 (재사용) -->
+    <div
+      class="modal fade"
+      id="notifDetailModalDash"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">알림 상세</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-2">
+              <span class="text-muted small">ID</span>
+              <div id="dash-nd-id" class="fw-semibold">-</div>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <span class="text-muted small">채널</span>
+                <div id="dash-nd-type" class="fw-semibold">-</div>
+              </div>
+              <div class="col-md-4">
+                <span class="text-muted small">레벨</span>
+                <div id="dash-nd-level" class="fw-semibold">-</div>
+              </div>
+              <div class="col-md-4">
+                <span class="text-muted small">상태</span>
+                <div id="dash-nd-status" class="fw-semibold">-</div>
+              </div>
+            </div>
+            <div class="mt-2">
+              <span class="text-muted small">제목</span>
+              <div id="dash-nd-title" class="text-break">-</div>
+            </div>
+            <div class="mt-2">
+              <span class="text-muted small">메시지</span>
+              <pre
+                id="dash-nd-msg"
+                class="bg-light p-2 border rounded"
+                style="white-space: pre-wrap"
+              >
+-</pre
+              >
+            </div>
+            <div class="mt-2">
+              <span class="text-muted small">에러</span>
+              <div id="dash-nd-err" class="text-danger text-break small">-</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              data-bs-dismiss="modal"
+            >
+              닫기
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              id="dash-btn-resend-modal"
+            >
+              재전송
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 보고서 목록 모달 -->
+    <div class="modal fade" id="reportListModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">보고서 목록</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="table-responsive">
+              <table class="table table-sm table-striped mb-0">
+                <thead>
+                  <tr>
+                    <th>파일명</th>
+                    <th>크기</th>
+                    <th>수정일시</th>
+                    <th class="text-end">다운로드/삭제</th>
+                  </tr>
+                </thead>
+                <tbody id="report-list-body">
+                  <tr><td colspan="4" class="text-center text-muted">데이터 로드 중...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">닫기</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

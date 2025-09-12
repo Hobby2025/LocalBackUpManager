@@ -4,13 +4,21 @@
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
+from pathlib import Path
+import os
+import csv
+import json
+import uuid
+import asyncio
 import logging
 from datetime import datetime, timedelta
 
 from app.database import get_db, Database, Backup, Schedule, SystemLog, Notification
+from app.core.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -64,6 +72,249 @@ async def get_system_status(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="시스템 상태 조회 중 오류가 발생했습니다."
         )
+
+
+@router.get("/realtime", summary="실시간 모니터링 요약")
+async def get_realtime_summary(db: Session = Depends(get_db)):
+    """최근 백업/알림 이력을 요약으로 제공 (폴링 기반 실시간용)
+    - 최근 10개 백업, 최근 20개 알림
+    - 최근 1시간 집계 요약
+    """
+    try:
+        now = datetime.now()
+        one_hour_ago = now - timedelta(hours=1)
+        # 최근 백업 10건
+        recent_backups_rows = db.query(Backup).order_by(Backup.created_at.desc()).limit(10).all()
+        recent_backups = [
+            {
+                "id": row.id,
+                "database_id": row.database_id,
+                "status": row.status,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in recent_backups_rows
+        ]
+        # 최근 알림 20건
+        recent_notifs_rows = db.query(Notification).order_by(Notification.created_at.desc()).limit(20).all()
+        recent_notifications = [
+            {
+                "id": n.id,
+                "level": n.level,
+                "status": n.status,
+                "title": n.title,
+                "notification_type": n.notification_type,
+                "created_at": n.created_at.isoformat() if getattr(n, "created_at", None) else None,
+            }
+            for n in recent_notifs_rows
+        ]
+        # 최근 1시간 요약
+        backups_1h = db.query(Backup).filter(Backup.created_at >= one_hour_ago).count()
+        success_1h = db.query(Backup).filter(Backup.created_at >= one_hour_ago, Backup.status == "completed").count()
+        failed_1h = db.query(Backup).filter(Backup.created_at >= one_hour_ago, Backup.status == "failed").count()
+        success_rate_1h = (success_1h / backups_1h * 100) if backups_1h > 0 else 0
+        return {
+            "timestamp": now.isoformat(),
+            "recent_backups": recent_backups,
+            "recent_notifications": recent_notifications,
+            "summary_1h": {
+                "total": backups_1h,
+                "successful": success_1h,
+                "failed": failed_1h,
+                "success_rate": round(success_rate_1h, 2),
+            },
+        }
+    except Exception as e:
+        logger.error(f"실시간 요약 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail="실시간 요약 조회 중 오류")
+
+
+@router.post("/reports/generate", summary="모니터링 보고서 생성")
+async def generate_report(
+    hours: int = 24,
+    status_filter: Optional[str] = None,
+    notify: bool = False,
+    retention_days: int = 7,
+    db: Session = Depends(get_db)
+):
+    """최근 hours 시간 범위의 백업 이력을 CSV 보고서로 생성
+    - 결과 파일은 data/reports 에 저장되고 /static/reports 로 서빙됨
+    - 반환: 보고서 파일명/URL/건수
+    """
+    try:
+        hours = max(1, min(hours, 24 * 7))  # 1시간~7일 제한
+        now = datetime.now()
+        since = now - timedelta(hours=hours)
+        q = db.query(Backup).filter(Backup.created_at >= since)
+        if status_filter:
+            q = q.filter(Backup.status == status_filter)
+        rows = q.order_by(Backup.created_at.asc()).all()
+        # 저장 경로 준비
+        reports_dir = Path("data/reports")
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        # 파일명 중복 방지를 위해 짧은 UUID suffix를 추가
+        suffix = uuid.uuid4().hex[:6]
+        filename = f"report_{now.strftime('%Y%m%d_%H%M%S')}_{suffix}.csv"
+        filepath = reports_dir / filename
+        # CSV 작성
+        with filepath.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            # 헤더
+            writer.writerow([
+                "backup_id",
+                "database_id",
+                "status",
+                "duration_seconds",
+                "file_size",
+                "compressed_size",
+                "compression_ratio",
+                "created_at",
+                "completed_at",
+            ])
+            for r in rows:
+                writer.writerow([
+                    r.id,
+                    r.database_id,
+                    r.status,
+                    r.duration_seconds,
+                    r.file_size,
+                    r.compressed_size,
+                    r.compression_ratio,
+                    r.created_at.isoformat() if r.created_at else "",
+                    r.completed_at.isoformat() if getattr(r, "completed_at", None) else "",
+                ])
+        # 보존기간(retention_days) 초과 파일 정리
+        try:
+            if retention_days and retention_days > 0:
+                cutoff = now - timedelta(days=retention_days)
+                for p in reports_dir.glob('report_*.csv'):
+                    try:
+                        if datetime.fromtimestamp(p.stat().st_mtime) < cutoff:
+                            p.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+        except Exception as _clean_err:
+            logger.warning(f"보고서 정리 경고: {_clean_err}")
+
+        # 필요시 알림 채널로 결과 전송(브로드캐스트)
+        if notify:
+            try:
+                svc = NotificationService()
+                title = "[보고서 생성] 백업 리포트 생성 완료"
+                msg = (
+                    f"기간: 최근 {hours}시간, 상태필터: {status_filter or '전체'}\n"
+                    f"건수: {len(rows)}\n"
+                    f"다운로드: /static/reports/{filename}"
+                )
+                svc.broadcast(title=title, message=msg)
+            except Exception as _nerr:
+                logger.warning(f"보고서 알림 전송 경고: {_nerr}")
+
+        return {
+            "status": "ok",
+            "filename": filename,
+            "report_url": f"/static/reports/{filename}",
+            "count": len(rows),
+            "since": since.isoformat(),
+            "generated_at": now.isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"보고서 생성 오류: {e}")
+        raise HTTPException(status_code=500, detail="보고서 생성 중 오류")
+
+
+@router.get("/realtime/stream", summary="실시간 모니터링 SSE 스트림")
+async def realtime_stream(db: Session = Depends(get_db)):
+    """Server-Sent Events로 주기적으로 실시간 요약을 전송
+    - 클라이언트는 EventSource로 수신
+    - 5초 간격으로 전송
+    """
+    async def event_generator():
+        try:
+            while True:
+                now = datetime.now()
+                one_hour_ago = now - timedelta(hours=1)
+                backups_1h = db.query(Backup).filter(Backup.created_at >= one_hour_ago).count()
+                success_1h = db.query(Backup).filter(Backup.created_at >= one_hour_ago, Backup.status == "completed").count()
+                failed_1h = db.query(Backup).filter(Backup.created_at >= one_hour_ago, Backup.status == "failed").count()
+                success_rate_1h = (success_1h / backups_1h * 100) if backups_1h > 0 else 0
+                recent_notifs_rows = db.query(Notification).order_by(Notification.created_at.desc()).limit(20).all()
+                recent_notifications = [
+                    {
+                        "id": n.id,
+                        "level": n.level,
+                        "status": n.status,
+                        "title": n.title,
+                        "notification_type": n.notification_type,
+                        "created_at": n.created_at.isoformat() if getattr(n, "created_at", None) else None,
+                    }
+                    for n in recent_notifs_rows
+                ]
+                payload = {
+                    "timestamp": now.isoformat(),
+                    "summary_1h": {
+                        "total": backups_1h,
+                        "successful": success_1h,
+                        "failed": failed_1h,
+                        "success_rate": round(success_rate_1h, 2),
+                    },
+                    "recent_notifications": recent_notifications,
+                }
+                data = json.dumps(payload)
+                yield f"data: {data}\n\n"
+                await asyncio.sleep(5)
+        except asyncio.CancelledError:
+            # 클라이언트 연결 종료
+            return
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.get("/reports/list", summary="생성된 보고서 목록")
+async def list_reports(db: Session = Depends(get_db)):
+    """data/reports 폴더의 보고서 파일 목록 제공
+    - 반환: filename, url, size_bytes, modified_at
+    """
+    try:
+        reports_dir = Path("data/reports")
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        items = []
+        for p in sorted(reports_dir.glob('report_*.csv'), key=lambda x: x.stat().st_mtime, reverse=True):
+            st = p.stat()
+            items.append({
+                "filename": p.name,
+                "url": f"/static/reports/{p.name}",
+                "size_bytes": st.st_size,
+                "modified_at": datetime.fromtimestamp(st.st_mtime).isoformat(),
+            })
+        return {"reports": items}
+    except Exception as e:
+        logger.error(f"보고서 목록 조회 오류: {e}")
+        raise HTTPException(status_code=500, detail="보고서 목록 조회 중 오류")
+
+
+@router.delete("/reports/{filename}", summary="보고서 삭제")
+async def delete_report(filename: str, db: Session = Depends(get_db)):
+    """보고서 파일을 안전하게 삭제
+    - filename은 report_*.csv 패턴만 허용
+    """
+    try:
+        # 파일명 패턴 검증 (디렉터리 탈출 방지)
+        if not filename.startswith("report_") or not filename.endswith(".csv"):
+            raise HTTPException(status_code=400, detail="허용되지 않는 파일명")
+        # 최종 경로 계산
+        reports_dir = Path("data/reports")
+        target = (reports_dir / filename).resolve()
+        # reports_dir 내부인지 확인
+        if reports_dir.resolve() not in target.parents and target != reports_dir.resolve():
+            raise HTTPException(status_code=400, detail="잘못된 경로")
+        if not target.exists():
+            raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")
+        target.unlink(missing_ok=True)
+        return {"status": "ok", "deleted": filename}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"보고서 삭제 오류: {e}")
+        raise HTTPException(status_code=500, detail="보고서 삭제 중 오류")
 
 @router.get("/db-status", summary="데이터베이스 연결 상태 조회")
 async def get_database_status(

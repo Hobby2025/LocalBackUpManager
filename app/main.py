@@ -92,8 +92,9 @@ app.add_middleware(
 )
 
 # 정적 파일 서빙
-app.mount("/static", StaticFiles(directory="web/static"), name="static")
+# 주의: 보다 구체적인 경로(/static/reports)를 먼저 마운트해야 /static에 가려지지 않습니다.
 app.mount("/static/reports", StaticFiles(directory="data/reports", check_dir=False), name="reports")
+app.mount("/static", StaticFiles(directory="web/static"), name="static")
 
 # API 라우터 등록
 app.include_router(databases.router, prefix="/api/databases", tags=["databases"])
