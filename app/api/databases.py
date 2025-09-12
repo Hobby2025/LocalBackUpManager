@@ -221,3 +221,53 @@ async def test_database_connection(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="데이터베이스 연결 테스트 중 오류가 발생했습니다."
         )
+
+@router.get("/config", summary="databases.yaml 설정 조회 (환경변수 확장 적용)")
+async def get_databases_config():
+    """databases.yaml을 로드하고 환경변수 확장을 적용한 결과를 반환합니다."""
+    try:
+        cm = get_config_manager()
+        data = cm.load_databases_config_expanded()
+        return {"databases_config": data}
+    except Exception as e:
+        logger.error(f"설정 조회 오류: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="설정 조회 중 오류가 발생했습니다."
+        )
+
+@router.post("/config/validate", summary="databases.yaml 설정 검증")
+async def validate_databases_config():
+    """databases.yaml 형식 및 필수 항목 검증 결과를 반환합니다."""
+    try:
+        cm = get_config_manager()
+        result = cm.validate_databases_config()
+        return result
+    except Exception as e:
+        logger.error(f"설정 검증 오류: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="설정 검증 중 오류가 발생했습니다."
+        )
+
+@router.post("/config/reload", summary="databases.yaml 리로드")
+async def reload_databases_config():
+    """databases.yaml을 강제로 리로드하고, 변경 여부와 검증 결과를 반환합니다."""
+    try:
+        cm = get_config_manager()
+        changed = cm.needs_reload("databases.yaml")
+        data = cm.reload_databases_config()
+        expanded = cm.expand_env_vars(data)
+        validation = cm.validate_databases_config(expanded)
+        return {
+            "reloaded": True,
+            "changed": changed,
+            "databases_config": expanded,
+            "validation": validation
+        }
+    except Exception as e:
+        logger.error(f"설정 리로드 오류: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="설정 리로드 중 오류가 발생했습니다."
+        )

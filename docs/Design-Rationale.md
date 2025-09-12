@@ -29,3 +29,9 @@
 - `DatabaseManager`를 도입해 psycopg2 `SimpleConnectionPool` 기반 다중 DB 연결 풀을 관리하고, 최소/최대 커넥션·풀 획득/반납/종료 기능을 제공합니다.
 - 실제 연결 테스트(`POST /api/databases/{id}/test-connection`)와 풀 제어/요약 API(`init-pool`, `close-pool`, `pool-status`)를 추가해 응답시간·성공/실패를 기록하고 `connection_status`/`last_connection_test`를 갱신합니다.
 - 애플리케이션 종료 시 `lifespan`에서 `close_all()`로 자원 누수를 방지하고, `GET /api/monitoring/db-status`로 전 DB의 연결 상태를 모니터링합니다.
+
+## 2.2 설정 파일 시스템
+
+- `ConfigManager`를 확장해 `${ENV}` 환경변수 재귀 확장, 간단 캐시 및 mtime 기반 변경 감지/리로드(`needs_reload`, `reload_databases_config`)를 지원합니다.
+- `databases.yaml`에 대해 루트 `databases` 키와 각 항목의 필수 필드( name, host, port, database, username, password, environment, priority )를 검증하고 포트 타입을 확인합니다.
+- API로 설정 조회/검증/리로드를 제공해 운영 중 안전한 동적 적용 기반을 마련했습니다: `GET /api/databases/config`, `POST /api/databases/config/validate`, `POST /api/databases/config/reload`.

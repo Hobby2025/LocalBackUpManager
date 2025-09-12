@@ -60,6 +60,9 @@ class ConfigManager:
     def __init__(self):
         self.config_dir = Path("config")
         self.config_dir.mkdir(exist_ok=True)
+        # 간단한 캐시 및 타임스탬프
+        self._cache: Dict[str, Any] = {}
+        self._cache_mtime: Dict[str, float] = {}
         
     def load_yaml_config(self, filename: str) -> Dict[str, Any]:
         """YAML 설정 파일 로드"""
@@ -70,7 +73,14 @@ class ConfigManager:
             
         try:
             with open(config_path, 'r', encoding='utf-8') as file:
-                return yaml.safe_load(file) or {}
+                data = yaml.safe_load(file) or {}
+            # 캐싱
+            self._cache[filename] = data
+            try:
+                self._cache_mtime[filename] = config_path.stat().st_mtime
+            except Exception:
+                pass
+            return data
         except Exception as e:
             print(f"설정 파일 로드 오류 ({filename}): {e}")
             return {}
@@ -82,6 +92,12 @@ class ConfigManager:
         try:
             with open(config_path, 'w', encoding='utf-8') as file:
                 yaml.dump(config, file, default_flow_style=False, allow_unicode=True)
+            # 저장 후 캐시 갱신
+            self._cache[filename] = config
+            try:
+                self._cache_mtime[filename] = config_path.stat().st_mtime
+            except Exception:
+                pass
             return True
         except Exception as e:
             print(f"설정 파일 저장 오류 ({filename}): {e}")
@@ -104,12 +120,89 @@ class ConfigManager:
         databases_config = self.load_databases_config()
         return databases_config.get("databases", {}).get(db_id)
     
-    def expand_env_vars(self, value: str) -> str:
-        """환경변수 확장 (${VAR_NAME} 형식)"""
-        if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
-            env_var = value[2:-1]
-            return os.getenv(env_var, value)
+    def expand_env_vars(self, value: Any) -> Any:
+        """환경변수 확장 (${VAR_NAME} 형식) - 재귀적으로 dict/list 처리"""
+        # 문자열 치환
+        if isinstance(value, str):
+            if value.startswith("${") and value.endswith("}"):
+                env_var = value[2:-1]
+                return os.getenv(env_var, value)
+            return value
+        # 리스트 재귀
+        if isinstance(value, list):
+            return [self.expand_env_vars(v) for v in value]
+        # 딕셔너리 재귀
+        if isinstance(value, dict):
+            return {k: self.expand_env_vars(v) for k, v in value.items()}
+        # 기타 타입은 그대로 반환
         return value
+
+    def load_databases_config_expanded(self) -> Dict[str, Any]:
+        """환경변수 확장을 적용한 데이터베이스 설정 반환"""
+        raw = self.load_databases_config()
+        return self.expand_env_vars(raw)
+
+    def validate_databases_config(self, config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """databases.yaml 유효성 검증
+        - 필수 키: databases
+        - 각 항목 필수: name, host, port, database, username, password, environment, priority
+        """
+        result = {"valid": True, "errors": [], "total": 0}
+        data = config if config is not None else self.load_databases_config_expanded()
+        if not isinstance(data, dict) or "databases" not in data:
+            result["valid"] = False
+            result["errors"].append("루트에 'databases' 키가 없습니다.")
+            return result
+        dbs = data.get("databases", {})
+        if not isinstance(dbs, dict) or not dbs:
+            result["valid"] = False
+            result["errors"].append("'databases' 항목이 비어있거나 잘못된 형식입니다.")
+            return result
+        required = ["name", "host", "port", "database", "username", "password", "environment", "priority"]
+        for key, conf in dbs.items():
+            result["total"] += 1
+            if not isinstance(conf, dict):
+                result["valid"] = False
+                result["errors"].append(f"{key}: 항목이 객체(dict)가 아닙니다.")
+                continue
+            missing = [f for f in required if f not in conf]
+            if missing:
+                result["valid"] = False
+                result["errors"].append(f"{key}: 필수 필드 누락 - {', '.join(missing)}")
+            # 타입/값 간단 체크
+            try:
+                if "port" in conf and conf["port"] is not None:
+                    int(conf["port"])  # 숫자 변환 가능 여부
+            except Exception:
+                result["valid"] = False
+                result["errors"].append(f"{key}: port는 정수여야 합니다.")
+        return result
+
+    def needs_reload(self, filename: str) -> bool:
+        """파일 변경 여부 확인"""
+        path = self.config_dir / filename
+        try:
+            mtime = path.stat().st_mtime
+            return self._cache_mtime.get(filename) != mtime
+        except Exception:
+            return True
+
+    def reload_databases_config(self) -> Dict[str, Any]:
+        """databases.yaml 강제 리로드 (캐시 무시)"""
+        # 캐시 무시: 직접 읽기
+        config_path = self.config_dir / "databases.yaml"
+        if not config_path.exists():
+            self._cache.pop("databases.yaml", None)
+            self._cache_mtime.pop("databases.yaml", None)
+            return {}
+        with open(config_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f) or {}
+        self._cache["databases.yaml"] = data
+        try:
+            self._cache_mtime["databases.yaml"] = config_path.stat().st_mtime
+        except Exception:
+            pass
+        return data
 
 # 전역 설정 인스턴스
 settings = Settings()
