@@ -3,12 +3,13 @@
 FastAPI 기반 REST API 서버
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
+from fastapi.templating import Jinja2Templates
 import uvicorn
 import logging
 from pathlib import Path
@@ -29,6 +30,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+templates = Jinja2Templates(directory="web/templates")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,6 +47,7 @@ async def lifespan(app: FastAPI):
     Path("data/temp").mkdir(parents=True, exist_ok=True)
     Path("web/static").mkdir(parents=True, exist_ok=True)
     Path("web/templates").mkdir(parents=True, exist_ok=True)
+    Path("web/static/js").mkdir(parents=True, exist_ok=True)
     
     logger.info("시스템 초기화 완료")
     
@@ -129,6 +132,11 @@ async def root():
     </body>
     </html>
     """
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    """대시보드 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 @app.get("/api/health")
 async def health_check():
