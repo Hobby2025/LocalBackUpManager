@@ -160,6 +160,7 @@
         <td>${statusBadge(it.connection_status)}</td>
         <td class="text-end">
           <div class="btn-group btn-group-sm" role="group">
+            <a class="btn btn-outline-secondary" href="/databases/${it.id}">상세</a>
             <button class="btn btn-outline-primary" data-action="test" data-id="${
               it.id
             }">연결 테스트</button>

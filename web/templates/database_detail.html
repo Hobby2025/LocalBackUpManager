@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>데이터베이스 상세 - 클라우드 데이터베이스 백업 관리 시스템</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/common.css" />
+  </head>
+  <body>
+    <nav
+      class="navbar navbar-expand-lg navbar-dark bg-primary"
+      data-bs-theme="dark"
+    >
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/dashboard">LocalBackUpManager</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+          aria-controls="navbarNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="/dashboard">대시보드</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/databases">데이터베이스</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/benchmarks">벤치마크</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/api/docs">API 문서</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container my-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="m-0">데이터베이스 상세</h2>
+        <a
+          id="btn-back"
+          class="btn btn-outline-secondary btn-sm"
+          href="/databases"
+          >목록으로</a
+        >
+      </div>
+
+      <!-- DB 정보 카드 -->
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-4">
+              <div class="small text-muted">이름</div>
+              <div id="db-name" class="fw-semibold">-</div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="small text-muted">표시명</div>
+              <div id="db-display" class="fw-semibold">-</div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="small text-muted">상태</div>
+              <div id="db-status" class="fw-semibold">-</div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="small text-muted">환경</div>
+              <div id="db-env" class="fw-semibold">-</div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="small text-muted">우선순위</div>
+              <div id="db-priority" class="fw-semibold">-</div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="small text-muted">호스트:포트</div>
+              <div id="db-host" class="fw-semibold">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 최근 백업 10건 -->
+      <div class="card">
+        <div class="card-header">최근 백업 10건</div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0">
+              <thead>
+                <tr>
+                  <th>상태</th>
+                  <th>유형</th>
+                  <th>압축률</th>
+                  <th>크기</th>
+                  <th>완료 시각</th>
+                  <th>상세</th>
+                </tr>
+              </thead>
+              <tbody id="db-recent-backups">
+                <tr>
+                  <td colspan="6" class="text-center text-muted">
+                    데이터 로드 중...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      window.__DATABASE_ID__ = "{{ database_id }}";
+    </script>
+    <script src="/static/js/database_detail.js"></script>
+  </body>
+</html>

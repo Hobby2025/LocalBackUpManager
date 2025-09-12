@@ -45,6 +45,7 @@ async def lifespan(app: FastAPI):
     Path("data/backups").mkdir(parents=True, exist_ok=True)
     Path("data/logs").mkdir(parents=True, exist_ok=True)
     Path("data/temp").mkdir(parents=True, exist_ok=True)
+    Path("data/reports").mkdir(parents=True, exist_ok=True)
     Path("web/static").mkdir(parents=True, exist_ok=True)
     Path("web/templates").mkdir(parents=True, exist_ok=True)
     Path("web/static/js").mkdir(parents=True, exist_ok=True)
@@ -90,6 +91,7 @@ app.add_middleware(
 
 # 정적 파일 서빙
 app.mount("/static", StaticFiles(directory="web/static"), name="static")
+app.mount("/static/reports", StaticFiles(directory="data/reports", check_dir=False), name="reports")
 
 # API 라우터 등록
 app.include_router(databases.router, prefix="/api/databases", tags=["databases"])
@@ -142,6 +144,21 @@ async def dashboard(request: Request):
 async def databases_page(request: Request):
     """데이터베이스 관리 HTML 페이지 렌더링"""
     return templates.TemplateResponse("databases.html", {"request": request})
+
+@app.get("/backups/{backup_id}", response_class=HTMLResponse)
+async def backup_detail_page(request: Request, backup_id: str):
+    """백업 상세 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("backup_detail.html", {"request": request, "backup_id": backup_id})
+
+@app.get("/databases/{database_id}", response_class=HTMLResponse)
+async def database_detail_page(request: Request, database_id: str):
+    """데이터베이스 상세 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("database_detail.html", {"request": request, "database_id": database_id})
+
+@app.get("/benchmarks", response_class=HTMLResponse)
+async def benchmarks_page(request: Request):
+    """벤치마크 리포트 업로드/열람 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("benchmarks.html", {"request": request})
 
 @app.get("/api/health")
 async def health_check():

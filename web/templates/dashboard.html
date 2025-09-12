@@ -47,6 +47,9 @@
               <a class="nav-link" href="/databases">데이터베이스</a>
             </li>
             <li class="nav-item">
+              <a class="nav-link" href="/benchmarks">벤치마크</a>
+            </li>
+            <li class="nav-item">
               <a class="nav-link" href="/api/docs">API 문서</a>
             </li>
             <li class="nav-item ms-2">
@@ -112,6 +115,38 @@
             </div>
           </div>
         </div>
+        <!-- 압축 도구 상태 카드 -->
+        <div class="col-12 col-md-6">
+          <div class="card h-100">
+            <div class="card-body">
+              <h6 class="card-title">압축 도구 상태</h6>
+              <div class="row g-2">
+                <div class="col-12 col-sm-4">
+                  <div class="small text-muted">기본 알고리즘</div>
+                  <div id="comp-default" class="fw-semibold">-</div>
+                </div>
+                <div class="col-12 col-sm-4">
+                  <div class="small text-muted">압축 레벨</div>
+                  <div id="comp-level" class="fw-semibold">-</div>
+                </div>
+                <div class="col-12 col-sm-4">
+                  <div class="small text-muted">도구 가용성</div>
+                  <div>
+                    <span id="comp-zstd" class="badge text-bg-secondary me-1"
+                      >zstd -</span
+                    >
+                    <span id="comp-lz4" class="badge text-bg-secondary"
+                      >lz4 -</span
+                    >
+                  </div>
+                </div>
+              </div>
+              <small class="text-muted"
+                >zstd/lz4가 없으면 자동으로 gzip으로 폴백합니다.</small
+              >
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 통계 차트 -->
@@ -163,12 +198,15 @@
                     <tr>
                       <th>DB</th>
                       <th>상태</th>
+                      <th>압축률</th>
+                      <th>크기</th>
                       <th>시간</th>
+                      <th>상세</th>
                     </tr>
                   </thead>
                   <tbody id="recent-backups-body">
                     <tr>
-                      <td colspan="3" class="text-center text-muted">
+                      <td colspan="6" class="text-center text-muted">
                         데이터 로드 중...
                       </td>
                     </tr>
