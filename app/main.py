@@ -17,6 +17,8 @@ from pathlib import Path
 from app.config import settings
 from app.database import init_database
 from app.api import databases, backups, schedules, monitoring
+from app.api import notifications
+from app.api import settings as settings_api
 from app.core.database_manager import db_manager
 
 # 로깅 설정
@@ -98,44 +100,10 @@ app.include_router(databases.router, prefix="/api/databases", tags=["databases"]
 app.include_router(backups.router, prefix="/api/backups", tags=["backups"])
 app.include_router(schedules.router, prefix="/api/schedules", tags=["schedules"])
 app.include_router(monitoring.router, prefix="/api/monitoring", tags=["monitoring"])
-
+app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
+app.include_router(settings_api.router, prefix="/api/notifications/settings", tags=["settings"])
 
 @app.get("/", response_class=HTMLResponse)
-async def root():
-    """루트 엔드포인트 - 웹 인터페이스"""
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>클라우드 데이터베이스 백업 관리 시스템</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    </head>
-    <body>
-        <div class="container mt-5">
-            <div class="row justify-content-center">
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-header bg-primary text-white">
-                            <h1 class="card-title mb-0">클라우드 데이터베이스 백업 관리 시스템</h1>
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text">클라우드 데이터베이스 자동 백업 시스템에 오신 것을 환영합니다.</p>
-                            <div class="d-grid gap-2">
-                                <a href="/api/docs" class="btn btn-primary">API 문서 (Swagger)</a>
-                                <a href="/api/redoc" class="btn btn-outline-primary">API 문서 (ReDoc)</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-
-@app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """대시보드 HTML 페이지 렌더링"""
     return templates.TemplateResponse("dashboard.html", {"request": request})
@@ -159,6 +127,16 @@ async def database_detail_page(request: Request, database_id: str):
 async def benchmarks_page(request: Request):
     """벤치마크 리포트 업로드/열람 HTML 페이지 렌더링"""
     return templates.TemplateResponse("benchmarks.html", {"request": request})
+
+@app.get("/notifications", response_class=HTMLResponse)
+async def notifications_page(request: Request):
+    """알림 이력/테스트 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("notifications.html", {"request": request})
+
+@app.get("/settings/notifications", response_class=HTMLResponse)
+async def notifications_settings_page(request: Request):
+    """알림 설정 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("settings_notifications.html", {"request": request})
 
 @app.get("/api/health")
 async def health_check():

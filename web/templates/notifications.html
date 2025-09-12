@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>알림 이력 / 테스트 - 클라우드 데이터베이스 백업 관리 시스템</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/common.css" />
+  </head>
+  <body>
+    {% set active_nav = 'notifications' %} {% include '_partials/nav.html' %}
+
+    <div class="container my-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="m-0">알림</h2>
+        <a class="btn btn-outline-primary btn-sm" href="/settings/notifications"
+          >알림 설정</a
+        >
+      </div>
+      <div class="row g-3">
+        <div class="col-12 col-lg-5">
+          <div class="card h-100">
+            <div class="card-header">알림 테스트 전송</div>
+            <div class="card-body">
+              <form id="test-form" class="row g-2">
+                <div class="col-12">
+                  <label class="form-label">채널</label>
+                  <select id="test-channel" class="form-select">
+                    <option value="">(자동 선택)</option>
+                    <option value="email">email</option>
+                    <option value="slack">slack</option>
+                    <option value="discord">discord</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">제목</label>
+                  <input
+                    class="form-control"
+                    id="test-title"
+                    value="테스트 알림"
+                  />
+                </div>
+                <div class="col-12">
+                  <label class="form-label">내용</label>
+                  <textarea class="form-control" id="test-message" rows="3">
+이것은 테스트 메시지입니다.</textarea
+                  >
+                </div>
+                <div class="col-12">
+                  <label class="form-label">수신자(Email, 콤마 구분)</label>
+                  <input
+                    class="form-control"
+                    id="test-to"
+                    placeholder="user1@example.com,user2@example.com"
+                  />
+                </div>
+                <div class="col-12 d-flex gap-2">
+                  <button class="btn btn-primary" type="submit">전송</button>
+                  <button
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    id="btn-broadcast"
+                  >
+                    브로드캐스트
+                  </button>
+                </div>
+              </form>
+              <div id="test-result" class="small text-muted mt-2"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-7">
+          <div class="card h-100">
+            <div class="card-header">최근 알림 이력</div>
+            <div class="card-body">
+              <form id="flt-form" class="row g-2 align-items-end mb-2">
+                <div class="col-6">
+                  <label class="form-label">레벨</label>
+                  <select id="flt-level" class="form-select">
+                    <option value="">전체</option>
+                    <option value="info">info</option>
+                    <option value="warning">warning</option>
+                    <option value="critical">critical</option>
+                  </select>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">상태</label>
+                  <select id="flt-status" class="form-select">
+                    <option value="">전체</option>
+                    <option value="pending">pending</option>
+                    <option value="sent">sent</option>
+                    <option value="failed">failed</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <button class="btn btn-outline-secondary" type="submit">
+                    필터 적용
+                  </button>
+                </div>
+              </form>
+              <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                  <thead>
+                    <tr>
+                      <th>시각</th>
+                      <th>채널</th>
+                      <th>레벨</th>
+                      <th>상태</th>
+                      <th>제목</th>
+                      <th class="text-end">동작</th>
+                    </tr>
+                  </thead>
+                  <tbody id="notif-body">
+                    <tr>
+                      <td colspan="6" class="text-center text-muted">
+                        데이터 로드 중...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 상세 모달 -->
+    <div
+      class="modal fade"
+      id="notifDetailModal"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">알림 상세</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-2">
+              <span class="text-muted small">ID</span>
+              <div id="nd-id" class="fw-semibold">-</div>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <span class="text-muted small">채널</span>
+                <div id="nd-type" class="fw-semibold">-</div>
+              </div>
+              <div class="col-md-4">
+                <span class="text-muted small">레벨</span>
+                <div id="nd-level" class="fw-semibold">-</div>
+              </div>
+              <div class="col-md-4">
+                <span class="text-muted small">상태</span>
+                <div id="nd-status" class="fw-semibold">-</div>
+              </div>
+            </div>
+            <div class="row g-3 mt-1">
+              <div class="col-md-6">
+                <span class="text-muted small">DB</span>
+                <div id="nd-db" class="fw-semibold">-</div>
+              </div>
+              <div class="col-md-6">
+                <span class="text-muted small">백업</span>
+                <div id="nd-bk" class="fw-semibold">-</div>
+              </div>
+            </div>
+            <div class="mt-2">
+              <span class="text-muted small">수신자</span>
+              <div id="nd-rec" class="text-break">-</div>
+            </div>
+            <div class="mt-2">
+              <span class="text-muted small">제목</span>
+              <div id="nd-title" class="text-break">-</div>
+            </div>
+            <div class="mt-2">
+              <span class="text-muted small">메시지</span>
+              <pre
+                id="nd-msg"
+                class="bg-light p-2 border rounded"
+                style="white-space: pre-wrap"
+              >
+-</pre
+              >
+            </div>
+            <div class="mt-2">
+              <span class="text-muted small">에러</span>
+              <div id="nd-err" class="text-danger text-break small">-</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              data-bs-dismiss="modal"
+            >
+              닫기
+            </button>
+            <button type="button" class="btn btn-primary" id="btn-resend-modal">
+              재전송
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/notifications.js"></script>
+  </body>
+</html>
