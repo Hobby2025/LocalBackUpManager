@@ -28,6 +28,8 @@ from app.database import (
     Database,
     Backup,
 )
+from app.database import Notification
+from app.core.notification_service import NotificationService
 
 # 암호화에 필요한 모듈 (requirements.txt의 cryptography 사용)
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -191,6 +193,11 @@ class BackupEngine:
                 backup.pg_dump_version = ver
             backup.checksum = checksum
             db_session.commit()
+            # 성공/경고 알림 훅
+            try:
+                self._notify_on_success_or_warn(db_session, target_db.id, backup)
+            except Exception:
+                pass
 
         except Exception as e:
             backup = db_session.query(Backup).filter(Backup.id == backup_id).first()
@@ -201,6 +208,11 @@ class BackupEngine:
                 if backup.started_at and backup.completed_at:
                     backup.duration_seconds = int((backup.completed_at - backup.started_at).total_seconds())
                 db_session.commit()
+                # 실패 알림 훅
+                try:
+                    self._notify_backup_failed(db_session, target_db.id if 'target_db' in locals() and target_db else None, backup.id, backup.error_message)
+                except Exception:
+                    pass
         finally:
             # 세마포어 해제
             try:
@@ -290,6 +302,11 @@ class BackupEngine:
             if ver:
                 backup.pg_dump_version = ver
             db_session.commit()
+            # 성공/경고 알림 훅
+            try:
+                self._notify_on_success_or_warn(db_session, target_db.id, backup)
+            except Exception:
+                pass
 
         except Exception as e:
             backup = db_session.query(Backup).filter(Backup.id == backup_id).first()
@@ -300,6 +317,11 @@ class BackupEngine:
                 if backup.started_at and backup.completed_at:
                     backup.duration_seconds = int((backup.completed_at - backup.started_at).total_seconds())
                 db_session.commit()
+                # 실패 알림 훅
+                try:
+                    self._notify_backup_failed(db_session, target_db.id if 'target_db' in locals() and target_db else None, backup.id, backup.error_message)
+                except Exception:
+                    pass
         finally:
             db_session.close()
 
@@ -403,6 +425,139 @@ class BackupEngine:
                     self.logger.warning('zstd 실패, gzip으로 폴백: %s', c.stderr)
                 else:
                     return dst
+            if algo == 'lz4' and _shutil.which('lz4'):
+                dst = Path(str(src) + '.lz4') if src.suffix != '.lz4' else src
+                cmd = ['lz4', f'-{level}', '-f', str(src), str(dst)]
+                c = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                if c.returncode != 0:
+                    self.logger.warning('lz4 실패, gzip으로 폴백: %s', c.stderr)
+                else:
+                    return dst
+        except Exception as e:
+            self.logger.warning('외부 압축 도구 실패: %s, gzip으로 폴백', e)
+        # 기본: gzip
+        dst = Path(str(src) + '.gz') if src.suffix != '.gz' else src
+        self._gzip_compress_level(src, dst, level)
+        return dst
+
+    # -------- 알림 훅 --------
+    def _notify_backup_failed(self, db_session, database_id: Optional[str], backup_id: Optional[str], error_message: Optional[str]):
+        """백업 실패 시 critical 알림 전송 및 Notification 레코드 기록"""
+        try:
+            svc = NotificationService()
+            # Notification 레코드 저장
+            rec = Notification(
+                database_id=database_id,
+                backup_id=backup_id,
+                notification_type='broadcast',
+                level='critical',
+                title='백업 실패',
+                message=f'백업 실패: backup_id={backup_id}\n오류: {error_message or "알 수 없는 오류"}',
+                status='pending',
+                created_at=datetime.utcnow(),
+            )
+            db_session.add(rec)
+            db_session.commit()
+            db_session.refresh(rec)
+
+            # 브로드캐스트 전송 (활성 채널 대상)
+            res = svc.broadcast(title='백업 실패', message=f'백업 실패: backup_id={backup_id}\n오류: {error_message or "알 수 없는 오류"}')
+            # 성공/실패 반영 (간단 판단: 하나라도 success면 sent로 간주)
+            sent = any((v or {}).get('status') == 'success' for v in res.values() if isinstance(v, dict))
+            rec.status = 'sent' if sent else 'failed'
+            if sent:
+                rec.sent_at = datetime.utcnow()
+            else:
+                # 대표 에러 메시지 수집
+                details = [ (k, v.get('detail')) for k, v in res.items() if isinstance(v, dict) and v.get('status')=='error']
+                if details:
+                    rec.error_message = '; '.join([f'{k}:{d}' for k,d in details if d])
+            db_session.commit()
+        except Exception:
+            # 알림 실패는 앱 동작에 영향 주지 않음
+            pass
+
+    def _notify_on_success_or_warn(self, db_session, database_id: Optional[str], backup: Backup) -> None:
+        """백업 성공 시 규칙에 따른 성공/경고 알림 전송"""
+        try:
+            cm = get_config_manager()
+            app_settings = cm.load_app_settings() or {}
+            notif = (app_settings.get('notifications') or {})
+            if not notif or not notif.get('enable'):
+                return
+            rules = (notif.get('rules') or {})
+            notify_on_success = bool(rules.get('notify_on_success'))
+            warn_on_thresholds = bool(rules.get('warn_on_thresholds'))
+            thresholds = (rules.get('thresholds') or {})
+            # 임계치 판정
+            warnings: list[str] = []
+            try:
+                ratio_gt = thresholds.get('compression_ratio_percent_gt')
+                if ratio_gt is not None and isinstance(backup.compression_ratio, (int, float)):
+                    if backup.compression_ratio > float(ratio_gt):
+                        warnings.append(f"압축률 임계 초과: {backup.compression_ratio}% > {ratio_gt}%")
+            except Exception:
+                pass
+            try:
+                dur_gt = thresholds.get('duration_seconds_gt')
+                if dur_gt is not None and isinstance(backup.duration_seconds, int):
+                    if backup.duration_seconds > int(dur_gt):
+                        warnings.append(f"소요시간 임계 초과: {backup.duration_seconds}s > {dur_gt}s")
+            except Exception:
+                pass
+
+            svc = NotificationService()
+            # 경고 우선
+            if warn_on_thresholds and warnings:
+                title = '백업 경고(임계 초과)'
+                msg = (
+                    f"database_id={database_id}\n"
+                    f"backup_id={backup.id}\n"
+                    f"상세: " + '; '.join(warnings)
+                )
+                res = svc.broadcast(title=title, message=msg)
+                # 기록(요약)
+                rec = Notification(
+                    database_id=database_id,
+                    backup_id=backup.id,
+                    notification_type='broadcast',
+                    level='warning',
+                    title=title,
+                    message=msg,
+                    status='sent' if any((v or {}).get('status')=='success' for v in res.values() if isinstance(v, dict)) else 'failed',
+                    created_at=datetime.utcnow(),
+                )
+                if rec.status == 'sent':
+                    rec.sent_at = datetime.utcnow()
+                db_session.add(rec)
+                db_session.commit()
+                return
+
+            # 성공 알림
+            if notify_on_success:
+                title = '백업 성공'
+                msg = (
+                    f"database_id={database_id}\n" 
+                    f"backup_id={backup.id}\n" 
+                    f"크기={backup.file_size}B, 압축률={backup.compression_ratio or '-'}%, 시간={backup.duration_seconds or '-'}s"
+                )
+                res = svc.broadcast(title=title, message=msg)
+                rec = Notification(
+                    database_id=database_id,
+                    backup_id=backup.id,
+                    notification_type='broadcast',
+                    level='info',
+                    title=title,
+                    message=msg,
+                    status='sent' if any((v or {}).get('status')=='success' for v in res.values() if isinstance(v, dict)) else 'failed',
+                    created_at=datetime.utcnow(),
+                )
+                if rec.status == 'sent':
+                    rec.sent_at = datetime.utcnow()
+                db_session.add(rec)
+                db_session.commit()
+        except Exception:
+            pass
             if algo == 'lz4' and _shutil.which('lz4'):
                 dst = Path(str(src) + '.lz4') if src.suffix != '.lz4' else src
                 cmd = ['lz4', f'-{level}', '-f', str(src), str(dst)]
@@ -596,6 +751,11 @@ class BackupEngine:
             if ver:
                 backup.pg_dump_version = ver
             db_session.commit()
+            # 성공/경고 알림 훅
+            try:
+                self._notify_on_success_or_warn(db_session, target_db.id, backup)
+            except Exception:
+                pass
 
         except Exception as e:
             # 실패 처리
@@ -607,5 +767,10 @@ class BackupEngine:
                 if backup.started_at and backup.completed_at:
                     backup.duration_seconds = int((backup.completed_at - backup.started_at).total_seconds())
                 db_session.commit()
+                # 실패 알림 훅
+                try:
+                    self._notify_backup_failed(db_session, target_db.id if 'target_db' in locals() and target_db else None, backup.id, backup.error_message)
+                except Exception:
+                    pass
         finally:
             db_session.close()

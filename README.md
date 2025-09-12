@@ -462,10 +462,10 @@ sudo systemctl start backup-manager
 
 - 5.1 알림 시스템 구현
 
-  - [ ] Email 알림 구현
-  - [ ] Slack 웹훅 연동
-  - [ ] Discord 웹훅 연동
-  - [ ] 계층적 알림 정책
+  - [x] Email 알림 구현
+  - [x] Slack 웹훅 연동
+  - [x] Discord 웹훅 연동
+  - [x] 계층적 알림 정책
 
 - 5.2 모니터링 대시보드
   - [ ] 실시간 백업 상태 모니터링

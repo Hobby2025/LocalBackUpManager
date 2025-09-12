@@ -11,49 +11,12 @@
     <link rel="stylesheet" href="/static/css/common.css" />
   </head>
   <body>
-    <nav
-      class="navbar navbar-expand-lg navbar-dark bg-primary"
-      data-bs-theme="dark"
-    >
-      <div class="container-fluid">
-        <a class="navbar-brand" href="/dashboard">LocalBackUpManager</a>
-        <button
-          class="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarNav"
-          aria-controls="navbarNav"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav ms-auto">
-            <li class="nav-item">
-              <a class="nav-link" href="/dashboard">대시보드</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/databases">데이터베이스</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/benchmarks">벤치마크</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="/api/docs">API 문서</a>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </nav>
+    {% set active_nav = 'databases' %} {% include '_partials/nav.html' %}
 
     <div class="container my-4">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="m-0">데이터베이스 상세</h2>
-        <a
-          id="btn-back"
-          class="btn btn-outline-secondary btn-sm"
-          href="/databases"
+        <a id="btn-back" class="btn btn-outline-secondary btn-sm" href="/"
           >목록으로</a
         >
       </div>
@@ -123,6 +86,7 @@
     <script>
       window.__DATABASE_ID__ = "{{ database_id }}";
     </script>
+    <script src="/static/js/common.js"></script>
     <script src="/static/js/database_detail.js"></script>
   </body>
 </html>

@@ -16,16 +16,45 @@ backup:
   max_parallel_jobs: 3
   default_compression: "gzip"
   default_encryption: true
-  compression_level: 3   # 1(빠름) ~ 9(고압축). zstd/lz4는 내부 매핑 적용
+  compression_level: 3 # 1(빠름) ~ 9(고압축). zstd/lz4는 내부 매핑 적용
   # WAL 아카이빙/증분/PITR 설정 (Phase 4)
   wal:
-    enable: false            # true로 설정 시 WAL 아카이빙 기능 활성화
-    archive_dir: "./data/wal_archive"  # WAL 보관 경로
-    keep_days: 7             # 보존 일수
-    base_backup_tool: "pg_basebackup"  # 기본 전체 베이스 백업 도구
+    enable: false # true로 설정 시 WAL 아카이빙 기능 활성화
+    archive_dir: "./data/wal_archive" # WAL 보관 경로
+    keep_days: 7 # 보존 일수
+    base_backup_tool: "pg_basebackup" # 기본 전체 베이스 백업 도구
   pitr:
-    enable: false            # 시점 복구(PITR) 기능 사용 여부
-    recovery_window_days: 7  # 복구 가능 윈도우 일수
+    enable: false # 시점 복구(PITR) 기능 사용 여부
+    recovery_window_days: 7 # 복구 가능 윈도우 일수
+
+# 알림 설정 (Phase 5.1)
+notifications:
+  enable: true
+  channels:
+    email: false
+    slack: false
+    discord: false
+  rules:
+    notify_on_success: false # 백업 성공시 알림
+    warn_on_thresholds: true # 임계값 초과 시 경고
+    thresholds:
+      compression_ratio_percent_gt: 80 # (압축후/원본)*100 % 가 80%보다 크면(압축효율 낮음) 경고
+      duration_seconds_gt: 600 # 소요시간이 600초(10분) 초과시 경고
+  weekly_summary:
+    enable: false # 주간 요약 알림 사용 여부
+    schedule_cron: "0 9 * * MON" # 월요일 09:00 (참고용, 스케줄러 연동 별도)
+  email:
+    smtp_host: "smtp.example.com"
+    smtp_port: 587
+    use_tls: true
+    username: ""
+    password: ""
+    from_address: "noreply@example.com"
+    to_addresses: []
+  slack:
+    webhook_url: ""
+  discord:
+    webhook_url: ""
 
 # 보존 정책
 retention:
