@@ -106,3 +106,42 @@
 ---
 
 문의/개선 제안은 GitHub 이슈 `Phase 4: 고급 기능 및 최적화 / 4.1 증분 백업`에 남겨주세요.
+
+## 8. 보고서 운영(생성/목록/삭제/보존)
+
+- 개요: 모니터링 보고서를 CSV로 생성해 다운로드·공유하며, 목록 조회/삭제 및 자동 보존(정리)을 지원합니다.
+
+### 8.1 대시보드(UI)에서 사용
+
+- 상단 컨트롤에서 기간/상태를 선택하고 필요 시 `알림 전송` 체크 후 `보고서 생성` 버튼 클릭
+  - 기간: `1시간`, `24시간`, `7일`
+  - 상태: `전체`, `성공만(completed)`, `실패만(failed)`
+  - 알림 전송: 생성 결과를 등록된 채널(Email/Slack/Discord)에 브로드캐스트
+- 생성 후 우측에 다운로드 링크가 표시됩니다.
+- `보고서 목록` 버튼 클릭 시 모달에서 생성된 파일 리스트 확인/다운로드/삭제 가능합니다.
+
+### 8.2 API로 사용
+
+- 생성: `POST /api/monitoring/reports/generate?hours=24&status_filter=failed&notify=true&retention_days=7`
+  - 파라미터
+    - `hours`: 조회 기간(1~168)
+    - `status_filter`: `completed`|`failed`|없음(전체)
+    - `notify`: `true`일 경우 결과를 알림 채널로 전송
+    - `retention_days`: 보고서 보존 일수(기본 7일, 초과분 자동 삭제)
+  - 응답: `filename`, `report_url`, `count`, `since`, `generated_at`
+- 목록: `GET /api/monitoring/reports/list`
+  - 응답: `reports[]`(filename, url, size_bytes, modified_at)
+- 삭제: `DELETE /api/monitoring/reports/{filename}`
+  - 제약: 파일명은 `report_*.csv` 패턴만 허용, 디렉터리 탈출 방지 검증 수행
+
+### 8.3 저장 경로 및 정적 서빙
+
+- 파일 저장: `data/reports/`
+- 정적 URL: `/static/reports/<파일명>`
+- 주의: 정적 마운트 순서에서 `/static/reports`가 `/static`보다 먼저 등록되어야 다운로드 404를 예방할 수 있습니다.
+
+## 9. 실시간 모니터링(SSE)
+
+- 개요: 서버-발신 이벤트(Server-Sent Events)로 최근 1시간 요약/최근 알림 목록을 실시간으로 푸시합니다.
+- 엔드포인트: `GET /api/monitoring/realtime/stream` (text/event-stream)
+- 대시보드: 브라우저 지원 시 SSE로 즉시 갱신, 미지원/오류 시 폴링(10~15초)으로 보완
