@@ -1,0 +1,105 @@
+/* 공통 UI 스타일 (CRLF)
+   - 색상/폰트/볼드 등 전역 조절을 위한 CSS 변수 제공
+   - 필요한 경우 테마별(data-bs-theme)로 재정의 가능
+*/
+/* 웹폰트 등록: Simple */
+@font-face {
+  font-family: "Simple";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_two@1.0/NotoSerifKR.woff")
+    format("woff");
+  font-weight: normal;
+  font-display: swap;
+}
+
+/* 기본 폰트 적용 */
+html, body {
+  font-family: 'Simple', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', Arial, sans-serif;
+  font-size: var(--ui-font-size-base);
+  line-height: 1.6;
+}
+:root {
+  /* 색상 팔레트 */
+  --ui-primary: #0d6efd; /* Bootstrap primary */
+  --ui-success: #198754;
+  --ui-danger: #dc3545;
+  --ui-warning: #ffc107;
+  --ui-info: #0dcaf0;
+  --ui-muted: #6c757d;
+  --ui-text: #212529;
+  --ui-bg: #ffffff;
+
+  /* 폰트 크기 (rem 기반) */
+  --ui-font-size-base: 1.0625rem;   /* 17px: 기본 본문 가독성 향상 */
+  --ui-font-size-sm: 0.9375rem;     /* 15px: 작은 텍스트 */
+  --ui-font-size-lg: 1.125rem;      /* 18px: 큰 텍스트 */
+  --ui-font-size-title: 1.25rem;    /* 20px: 섹션 타이틀 (최대 21px 이하) */
+  --ui-font-size-kpi: 1.3125rem;    /* 21px: KPI 값 (최대 21px) */
+
+  /* 폰트 두께 */
+  --ui-weight-base: 400; /* 기본 */
+  --ui-weight-strong: 600; /* 강조 */
+  --ui-weight-title: 700; /* 타이틀 */
+
+  /* 카드/테이블 여백 */
+  --ui-card-padding: 1rem;
+  --ui-table-head-weight: 600;
+}
+
+/***** 다크 테마일 때 색 보정 *****/
+:root[data-bs-theme="dark"] {
+  --ui-text: #e9ecef;
+  --ui-bg: #0b0f13;
+  --ui-muted: #b8c0c7;
+}
+
+/***** 유틸 클래스 *****/
+.ui-title {
+  font-size: var(--ui-font-size-title);
+  font-weight: var(--ui-weight-title);
+  color: var(--ui-text);
+}
+.ui-strong { font-weight: var(--ui-weight-strong); }
+.ui-muted { color: var(--ui-muted); }
+.ui-kpi {
+  font-size: var(--ui-font-size-kpi);
+  font-weight: var(--ui-weight-strong);
+}
+
+/* 카드 타이틀 폰트 크기/볼드 강화 */
+.card .card-title {
+  font-size: var(--ui-font-size-lg);
+  font-weight: var(--ui-weight-strong);
+}
+
+/***** 카드/헤더/테이블 강화 *****/
+.card .card-header {
+  font-weight: var(--ui-weight-strong);
+  font-size: var(--ui-font-size-sm);
+}
+.card .card-body {
+  padding: var(--ui-card-padding);
+}
+.table thead th {
+  font-weight: var(--ui-table-head-weight);
+}
+
+/***** 배지 가독성 향상 *****/
+.badge { font-size: 0.85rem; }
+.badge.text-bg-success { font-weight: var(--ui-weight-strong); }
+.badge.text-bg-danger  { font-weight: var(--ui-weight-strong); }
+.badge.text-bg-warning { font-weight: var(--ui-weight-strong); }
+.badge.text-bg-info    { font-weight: var(--ui-weight-strong); }
+.badge.text-bg-secondary { font-weight: var(--ui-weight-strong); }
+
+/***** 내비게이션 타이틀 크기 보정 *****/
+.navbar .navbar-brand {
+  font-weight: var(--ui-weight-strong);
+  font-size: var(--ui-font-size-lg);
+}
+
+/***** 폼 라벨/헬퍼 텍스트 크기 *****/
+.form-label { font-weight: var(--ui-weight-strong); font-size: var(--ui-font-size-sm); }
+.form-text  { font-size: var(--ui-font-size-sm); color: var(--ui-muted); }
+
+/* 테이블 본문 가독성 */
+.table td, .table th { vertical-align: middle; }

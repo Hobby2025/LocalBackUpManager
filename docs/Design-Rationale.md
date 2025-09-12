@@ -41,3 +41,9 @@
 - Bootstrap 5 기반 반응형 레이아웃과 다크 테마 토글, 로딩 스피너를 적용해 사용자 경험을 개선하고, 최근 백업·활성 DB·상태 배지 등 핵심 위젯을 구성했습니다.
 - Chart.js로 최근 7일 총/성공/실패 추이를 시각화하고, 일별 평균 소요 시간/압축률 보조차트를 추가해 백업 품질과 성능을 한 화면에서 파악할 수 있게 했습니다.
 - 백엔드 모니터링 API와 연계(`GET /api/monitoring/status`, `GET /api/monitoring/dashboard`)하여 10초 간격 자동 갱신 및 실패 상세 링크(`/api/backups?status_filter=failed`) 제공으로 운영 가시성을 강화했습니다.
+
+## 3.2 데이터베이스 관리 페이지
+
+- 프론트엔드에 데이터베이스 목록/상태/액션 UI(`web/templates/databases.html`, `web/static/js/databases.js`)를 구성하고, 새로고침/추가/수정/삭제/연결 테스트 상호작용을 모달/버튼 기반으로 단순화했습니다.
+- 백엔드는 기존 REST API(`/api/databases` CRUD, `POST /api/databases/{id}/test-connection`)에 맞춰 필요한 필드만 사용해 상호 운용성을 높이고, 소프트 삭제로 운영 안전성을 확보했습니다.
+- 우선 검증·알림은 브라우저 기본(알림/확인)으로, 후속 고도화에서 토스트/유효성 강화/검색·정렬·페이징을 순차 추가 가능하도록 확장 포인트를 남겼습니다.

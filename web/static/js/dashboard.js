@@ -67,6 +67,13 @@
       }
     } catch (e) {
       console.error(e);
+      if (window.Swal) {
+        Swal.fire({
+          icon: "error",
+          title: "오류",
+          text: e.message || "시스템 상태 조회 실패",
+        });
+      }
     }
   }
 
@@ -172,7 +179,7 @@
         labels: labels,
         datasets: [
           {
-            label: "Total Backups",
+            label: "총 백업 수",
             data: totals,
             borderColor: "rgba(13,110,253,0.9)",
             backgroundColor: "rgba(13,110,253,0.2)",
@@ -180,7 +187,7 @@
             fill: true,
           },
           {
-            label: "Success Backups",
+            label: "성공한 백업 수",
             data: successes,
             borderColor: "rgba(25,135,84,0.9)",
             backgroundColor: "rgba(25,135,84,0.2)",
@@ -188,7 +195,7 @@
             fill: true,
           },
           {
-            label: "Failed Backups",
+            label: "실패한 백업 수",
             data: failed,
             borderColor: "rgba(220,53,69,0.9)",
             backgroundColor: "rgba(220,53,69,0.15)",
@@ -227,7 +234,7 @@
         labels: labels,
         datasets: [
           {
-            label: "Average Time (sec)",
+            label: "평균 소요 시간(초)",
             data: avgDuration,
             borderColor: "rgba(255,193,7,0.9)",
             backgroundColor: "rgba(255,193,7,0.2)",
@@ -236,7 +243,7 @@
             yAxisID: "y1",
           },
           {
-            label: "Average Compression Ratio",
+            label: "평균 압축률",
             data: avgCompression,
             borderColor: "rgba(108,117,125,0.9)",
             backgroundColor: "rgba(108,117,125,0.2)",

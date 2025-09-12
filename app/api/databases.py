@@ -3,7 +3,7 @@
 데이터베이스 등록, 수정, 삭제, 조회 기능
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import logging
@@ -19,14 +19,72 @@ router = APIRouter()
 async def get_databases(
     skip: int = 0,
     limit: int = 100,
+    q: Optional[str] = Query(None, description="이름/표시명/호스트 검색"),
+    environment: Optional[str] = Query(None, description="환경 필터"),
+    priority: Optional[str] = Query(None, description="우선순위 필터"),
+    status_filter: Optional[str] = Query(None, description="연결 상태 필터"),
+    include_inactive: bool = Query(False, description="비활성 포함 여부"),
+    sort: Optional[str] = Query(None, description="정렬 필드(name, environment, priority, host, port, connection_status)"),
+    order: Optional[str] = Query("asc", description="정렬 방향 asc/desc"),
+    page: Optional[int] = Query(None, ge=1, description="페이지 번호(선택)"),
+    page_size: Optional[int] = Query(None, ge=1, le=500, description="페이지 크기(선택)"),
     db: Session = Depends(get_db)
 ):
-    """등록된 모든 데이터베이스 목록을 조회합니다."""
+    """등록된 데이터베이스 목록을 조회합니다. 검색/필터/정렬/페이징을 지원합니다."""
     try:
-        databases = get_all_databases(db)
+        query = db.query(Database)
+
+        # 활성/비활성 필터
+        if not include_inactive:
+            query = query.filter(Database.is_active == True)
+
+        # 텍스트 검색
+        if q:
+            like = f"%{q}%"
+            query = query.filter(
+                (Database.name.ilike(like)) |
+                (Database.display_name.ilike(like)) |
+                (Database.host.ilike(like))
+            )
+
+        # 환경/우선순위/상태 필터
+        if environment:
+            query = query.filter(Database.environment == environment)
+        if priority:
+            query = query.filter(Database.priority == priority)
+        if status_filter:
+            query = query.filter(Database.connection_status == status_filter)
+
+        # 정렬
+        sort_map = {
+            "name": Database.name,
+            "environment": Database.environment,
+            "priority": Database.priority,
+            "host": Database.host,
+            "port": Database.port,
+            "connection_status": Database.connection_status,
+            "display_name": Database.display_name,
+        }
+        if sort in sort_map:
+            sort_col = sort_map[sort]
+            query = query.order_by(sort_col.desc() if (order or "asc").lower() == "desc" else sort_col.asc())
+        else:
+            query = query.order_by(Database.display_name.asc())
+
+        total = query.count()
+
+        # 페이징 우선, 없으면 skip/limit
+        if page and page_size:
+            offset = (page - 1) * page_size
+            items = query.offset(offset).limit(page_size).all()
+        else:
+            items = query.offset(skip).limit(limit).all()
+
         return {
-            "total": len(databases),
-            "databases": databases[skip:skip + limit]
+            "total": total,
+            "databases": items,
+            "page": page,
+            "page_size": page_size,
         }
     except Exception as e:
         logger.error(f"데이터베이스 목록 조회 오류: {e}")
@@ -126,6 +184,12 @@ async def update_database(
             if field in database_data:
                 setattr(database, field, database_data[field])
         
+        # 비밀번호 입력 정책: 공란 또는 미전달이면 유지, 값이 있으면 변경
+        if "password" in database_data:
+            pwd = database_data.get("password")
+            if isinstance(pwd, str) and pwd.strip() != "":
+                database.password_encrypted = pwd  # TODO: 암호화 적용 필요
+
         db.commit()
         db.refresh(database)
         

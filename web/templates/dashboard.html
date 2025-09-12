@@ -11,6 +11,10 @@
     />
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- SweetAlert2 CDN (스위트 알람) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- 공통 UI CSS -->
+    <link rel="stylesheet" href="/static/css/common.css" />
   </head>
   <body>
     <nav
@@ -18,7 +22,11 @@
       data-bs-theme="dark"
     >
       <div class="container-fluid">
-        <a class="navbar-brand" href="/">LocalBackUpManager</a>
+        <a
+          class="navbar-brand ui-font-size-title ui-weight-title"
+          href="/dashboard"
+          >LocalBackUpManager</a
+        >
         <button
           class="navbar-toggler"
           type="button"
@@ -33,10 +41,13 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
             <li class="nav-item">
-              <a class="nav-link active" href="/dashboard">Dashboard</a>
+              <a class="nav-link active" href="/dashboard">대시보드</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="/api/docs">API Docs</a>
+              <a class="nav-link" href="/databases">데이터베이스</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/api/docs">API 문서</a>
             </li>
             <li class="nav-item ms-2">
               <button
@@ -59,7 +70,7 @@
         <div class="col-12 col-md-3">
           <div class="card h-100">
             <div class="card-body">
-              <h6 class="card-title">System Status</h6>
+              <h6 class="card-title">시스템 상태</h6>
               <p class="fs-4 mb-0">
                 <span
                   id="system-status"
@@ -74,33 +85,29 @@
         <div class="col-12 col-md-3">
           <div class="card h-100">
             <div class="card-body">
-              <h6 class="card-title">Active DB</h6>
+              <h6 class="card-title">활성 DB</h6>
               <p id="total-databases" class="fs-4 mb-0">0</p>
-              <small class="text-muted">Total Count</small>
+              <small class="text-muted">총 개수</small>
             </div>
           </div>
         </div>
         <div class="col-12 col-md-3">
           <div class="card h-100">
             <div class="card-body">
-              <h6 class="card-title">Recent Backups</h6>
+              <h6 class="card-title">최근 24h 백업</h6>
               <p id="recent-backups" class="fs-4 mb-0">0</p>
-              <small id="success-rate" class="text-muted"
-                >Success Rate: 0%</small
-              >
+              <small id="success-rate" class="text-muted">성공률: 0%</small>
             </div>
           </div>
         </div>
         <div class="col-12 col-md-3">
           <div class="card h-100">
             <div class="card-body">
-              <h6 class="card-title">Recent Failed</h6>
+              <h6 class="card-title">최근 실패</h6>
               <p id="failed-backups" class="fs-4 mb-0">0</p>
-              <small class="text-muted">Recent 24h</small>
+              <small class="text-muted">최근 24h</small>
               <small id="failed-link" class="text-muted"
-                ><a href="#" class="text-decoration-none"
-                  >View Details</a
-                ></small
+                ><a href="#" class="text-decoration-none">상세보기</a></small
               >
             </div>
           </div>
@@ -111,7 +118,7 @@
       <div class="row g-3 mt-1">
         <div class="col-12">
           <div class="card">
-            <div class="card-header">Recent 7days Backups</div>
+            <div class="card-header">최근 7일 백업 통계</div>
             <div class="card-body">
               <div class="position-relative" style="height: 360px">
                 <div
@@ -119,9 +126,9 @@
                   class="position-absolute top-50 start-50 translate-middle text-center"
                 >
                   <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading...</span>
+                    <span class="visually-hidden">로딩중...</span>
                   </div>
-                  <div class="small text-muted mt-2">Chart Loading...</div>
+                  <div class="small text-muted mt-2">차트 로딩 중...</div>
                 </div>
                 <canvas id="backupsChart" height="80"></canvas>
               </div>
@@ -134,9 +141,7 @@
       <div class="row g-3 mt-1">
         <div class="col-12">
           <div class="card">
-            <div class="card-header">
-              Daily Average Time / Compression Ratio
-            </div>
+            <div class="card-header">일별 평균 소요 시간 / 압축률</div>
             <div class="card-body">
               <div class="position-relative" style="height: 320px">
                 <canvas id="averagesChart" height="80"></canvas>
@@ -150,21 +155,21 @@
       <div class="row g-3 mt-1">
         <div class="col-12 col-lg-6">
           <div class="card h-100">
-            <div class="card-header">Recent Backups 10</div>
+            <div class="card-header">최근 백업 10건</div>
             <div class="card-body">
               <div class="table-responsive">
                 <table class="table table-sm table-striped mb-0">
                   <thead>
                     <tr>
                       <th>DB</th>
-                      <th>Status</th>
-                      <th>Time</th>
+                      <th>상태</th>
+                      <th>시간</th>
                     </tr>
                   </thead>
                   <tbody id="recent-backups-body">
                     <tr>
                       <td colspan="3" class="text-center text-muted">
-                        Data Loading...
+                        데이터 로드 중...
                       </td>
                     </tr>
                   </tbody>
@@ -175,13 +180,13 @@
         </div>
         <div class="col-12 col-lg-6">
           <div class="card h-100">
-            <div class="card-header">Active Databases</div>
+            <div class="card-header">활성 데이터베이스</div>
             <div class="card-body">
               <ul
                 id="active-databases-list"
                 class="list-group list-group-flush"
               >
-                <li class="list-group-item text-muted">Loading...</li>
+                <li class="list-group-item text-muted">데이터 로드 중...</li>
               </ul>
             </div>
           </div>
