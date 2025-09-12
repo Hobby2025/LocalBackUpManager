@@ -16,6 +16,15 @@ backup:
   max_parallel_jobs: 3
   default_compression: "gzip"
   default_encryption: true
+  # WAL 아카이빙/증분/PITR 설정 (Phase 4)
+  wal:
+    enable: false            # true로 설정 시 WAL 아카이빙 기능 활성화
+    archive_dir: "./data/wal_archive"  # WAL 보관 경로
+    keep_days: 7             # 보존 일수
+    base_backup_tool: "pg_basebackup"  # 기본 전체 베이스 백업 도구
+  pitr:
+    enable: false            # 시점 복구(PITR) 기능 사용 여부
+    recovery_window_days: 7  # 복구 가능 윈도우 일수
 
 # 보존 정책
 retention:

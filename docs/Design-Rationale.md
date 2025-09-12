@@ -47,3 +47,9 @@
 - 프론트엔드에 데이터베이스 목록/상태/액션 UI(`web/templates/databases.html`, `web/static/js/databases.js`)를 구성하고, 새로고침/추가/수정/삭제/연결 테스트 상호작용을 모달/버튼 기반으로 단순화했습니다.
 - 백엔드는 기존 REST API(`/api/databases` CRUD, `POST /api/databases/{id}/test-connection`)에 맞춰 필요한 필드만 사용해 상호 운용성을 높이고, 소프트 삭제로 운영 안전성을 확보했습니다.
 - 우선 검증·알림은 브라우저 기본(알림/확인)으로, 후속 고도화에서 토스트/유효성 강화/검색·정렬·페이징을 순차 추가 가능하도록 확장 포인트를 남겼습니다.
+
+## 4.1 증분 백업(WAL)·PITR 설계
+
+- 설계 의도: 전체 덤프 외에 WAL 아카이빙을 이용한 증분 보관과 시점복구(PITR)를 지원해 RPO/RTO를 개선하고 운영 복원력을 높입니다.
+- 구현 전략: 설정 파일(`config/settings.yaml`)에 `backup.wal`/`backup.pitr` 키를 추가해 기능 토글과 경로/보존정책을 외부화하고, `BackupEngine`에 WAL/증분/PITR 스켈레톤을 먼저 도입한 뒤 점진적으로 실제 실행 로직(pg_basebackup, WAL 적용)을 연결합니다.
+- 운영 고려: PostgreSQL 서버 측 `archive_command` 등은 인프라 설정으로 분리하고, 본 시스템은 보관 디렉터리 보장/메타데이터 관리/복구 워크플로 가이드를 책임지도록 역할을 명확히 분리합니다.
