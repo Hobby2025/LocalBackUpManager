@@ -23,3 +23,9 @@
 - `app/core/backup_engine.py`의 `BackupEngine`으로 pg_dump 실행·압축(gzip)·암호화(AES-256-GCM)·체크섬까지 단일 플로우로 구성했습니다.
 - `BackgroundTasks`로 API 요청과 비동기 실행을 분리해 사용자 응답성을 유지하고, 메타데이터(`file_path`,`checksum`,`duration_seconds` 등)를 즉시 기록합니다.
 - `ENCRYPTION_KEY(32자)` 검증과 `pg_dump_version` 기록으로 보안/재현가능성을 높였으며, 추후 비밀번호 암호화 저장/복호화 연계를 전제로 설계했습니다.
+
+## 2.1 DatabaseManager 구현
+
+- `DatabaseManager`를 도입해 psycopg2 `SimpleConnectionPool` 기반 다중 DB 연결 풀을 관리하고, 최소/최대 커넥션·풀 획득/반납/종료 기능을 제공합니다.
+- 실제 연결 테스트(`POST /api/databases/{id}/test-connection`)와 풀 제어/요약 API(`init-pool`, `close-pool`, `pool-status`)를 추가해 응답시간·성공/실패를 기록하고 `connection_status`/`last_connection_test`를 갱신합니다.
+- 애플리케이션 종료 시 `lifespan`에서 `close_all()`로 자원 누수를 방지하고, `GET /api/monitoring/db-status`로 전 DB의 연결 상태를 모니터링합니다.

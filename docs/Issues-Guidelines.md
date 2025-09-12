@@ -79,6 +79,11 @@
 **목표**: 프로덕션 배포 준비 및 품질 보증
 **완료 기준**: 90% 이상 테스트 커버리지
 
+### Phase 8: DB Type 확장 및 안정화 (3주)
+
+**목표**: 다중 DB 유형 지원 및 안정화
+**완료 기준**: MySQL, SQLite 지원 및 안정화
+
 ## 📝 이슈 템플릿
 
 ### 기능 개발 이슈 템플릿
@@ -264,10 +269,10 @@
 
 작업 내용:
 
-- [ ] 다중 DB 연결 관리
-- [ ] 연결 풀 관리
-- [ ] DB 상태 모니터링
-- [ ] 연결 테스트 기능
+- [x] 다중 DB 연결 관리
+- [x] 연결 풀 관리
+- [x] DB 상태 모니터링
+- [x] 연결 테스트 기능
 ```
 
 #### 2.2 설정 파일 시스템
@@ -426,8 +431,9 @@
 
 - [ ] 단위 테스트 작성 (90% 커버리지)
 - [ ] 통합 테스트 구현
-- [ ] 성능 테스트 및 부하 테스트
-- [ ] 장애 복구 시나리오 테스트
+- [ ] 성능/부하 테스트(덤프 시간/파일 크기/압축률)
+- [ ] 회귀 테스트(기존 PostgreSQL 기능 영향 검증)
+- [ ] 운영/로컬 환경별 실행 가이드 점검
 ```
 
 #### 7.2 배포 시스템
@@ -443,6 +449,85 @@
 - [ ] docker-compose.yml 구성
 - [ ] CI/CD 파이프라인 구축
 - [ ] 운영 문서 작성
+```
+
+### Phase 8: DB Type 확장 및 안정화
+
+#### 8.1 메타모델 확장 및 마이그레이션 (db_type 추가)
+
+```markdown
+제목: [Phase8] Database 메타모델 확장(db_type) 및 Alembic 마이그레이션
+라벨: type/feature, component/database, priority/high, status/ready
+마일스톤: Phase 8: DB Type 확장 및 안정화
+
+작업 내용:
+
+- [ ] Database 테이블에 db_type 컬럼 추가 (postgresql/mysql/sqlite)
+- [ ] Alembic 마이그레이션 생성 및 적용 가이드
+- [ ] API 입력 검증에 db_type 반영 (생성/수정)
+- [ ] config/databases.yaml 예시 업데이트 (DB 유형별 샘플)
+```
+
+#### 8.2 DatabaseManager 어댑터화 (연결/풀/테스트)
+
+```markdown
+제목: [Phase8] DatabaseManager 어댑터 패턴 도입(Postgres/MySQL/SQLite)
+라벨: type/refactor, component/database, priority/high, status/ready
+마일스톤: Phase 8: DB Type 확장 및 안정화
+
+작업 내용:
+
+- [ ] DatabaseAdapter 인터페이스 정의(create_pool/getconn/putconn/close_all/test_connection)
+- [ ] PostgresAdapter 구현(기존 psycopg2 기반 이식)
+- [ ] MySQLAdapter 구현(PyMySQL 또는 mysqlclient 기반, 풀 전략 결정)
+- [ ] SQLiteAdapter 구현(sqlite3, 풀 불필요 처리)
+- [ ] /api/databases/\* 엔드포인트가 어댑터 기반으로 동작하도록 변경
+```
+
+#### 8.3 BackupEngine 백업 전략 어댑터
+
+```markdown
+제목: [Phase8] BackupEngine DB별 백업 전략 어댑터 추가
+라벨: type/feature, component/backup-engine, priority/high, status/ready
+마일스톤: Phase 8: DB Type 확장 및 안정화
+
+작업 내용:
+
+- [ ] BackupAdapter 인터페이스 정의(run_backup, 옵션 구성)
+- [ ] PostgresBackupAdapter(pg_dump) 유지/정리
+- [ ] MySQLBackupAdapter(mysqldump, 인증/옵션/에러 처리)
+- [ ] SQLiteBackupAdapter(일관성 있는 파일 스냅샷/backup API)
+- [ ] 공통 후처리 재사용(압축/암호화/체크섬/메타데이터)
+```
+
+#### 8.4 설정·문서·배포 업데이트
+
+```markdown
+제목: [Phase8] 설정 파일/문서/배포 스크립트 업데이트
+라벨: type/documentation, component/backend, priority/medium, status/ready
+마일스톤: Phase 8: DB Type 확장 및 안정화
+
+작업 내용:
+
+- [ ] README/Development-Guidelines에 다중 DB 지원 가이드 추가
+- [ ] databases.yaml에 mysql/sqlite 예시 추가 및 주석 강화
+- [ ] requirements.txt에 MySQL 드라이버 추가(PyMySQL 또는 mysqlclient) 검토
+- [ ] Dockerfile에 mysql-client(mysqldump) 설치 추가
+```
+
+#### 8.5 통합 및 안정화 테스트
+
+```markdown
+제목: [Phase8] 다중 DB 통합/안정화 테스트
+라벨: type/test, component/backend, priority/high, status/ready
+마일스톤: Phase 8: DB Type 확장 및 안정화
+
+작업 내용:
+
+- [ ] DB 유형별 연결 테스트/E2E 백업 시나리오 케이스 작성
+- [ ] 성능/부하 테스트(덤프 시간/파일 크기/압축률)
+- [ ] 회귀 테스트(기존 PostgreSQL 기능 영향 검증)
+- [ ] 운영/로컬 환경별 실행 가이드 점검
 ```
 
 ## 🔄 이슈 관리 워크플로우
