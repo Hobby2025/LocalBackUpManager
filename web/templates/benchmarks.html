@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>벤치마크 리포트 - 클라우드 데이터베이스 백업 관리 시스템</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/common.css" />
+  </head>
+  <body>
+    <nav
+      class="navbar navbar-expand-lg navbar-dark bg-primary"
+      data-bs-theme="dark"
+    >
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/dashboard">LocalBackUpManager</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+          aria-controls="navbarNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="/dashboard">대시보드</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/benchmarks">벤치마크</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/api/docs">API 문서</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container my-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="m-0">벤치마크 리포트</h2>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-body">
+          <form id="upload-form" class="row g-2 align-items-end">
+            <div class="col-12 col-md-6">
+              <label class="form-label">CSV/JSON 파일</label>
+              <input
+                type="file"
+                class="form-control"
+                id="report-file"
+                accept=".csv,.json"
+              />
+            </div>
+            <div class="col-12 col-md-3">
+              <button type="submit" class="btn btn-primary w-100">
+                업로드
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">리포트 목록</div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0">
+              <thead>
+                <tr>
+                  <th>파일명</th>
+                  <th>크기</th>
+                  <th>수정 시각</th>
+                  <th>열기</th>
+                </tr>
+              </thead>
+              <tbody id="reports-body">
+                <tr>
+                  <td colspan="4" class="text-center text-muted">
+                    데이터 로드 중...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/benchmarks.js"></script>
+  </body>
+</html>

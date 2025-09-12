@@ -19,6 +19,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, List
 import logging
+import shutil as _shutil
+import threading
 
 from app.config import settings, get_config_manager
 from app.database import (
@@ -41,6 +43,9 @@ class BackupEngine:
         Path(settings.TEMP_PATH).mkdir(parents=True, exist_ok=True)
         # 로거 설정
         self.logger = logging.getLogger(__name__)
+        # 전역 동시 실행 제한(세마포어) 초기화 - 프로세스 내에서만 유효
+        if not hasattr(BackupEngine, "_sema"):
+            BackupEngine._sema = threading.Semaphore(self._get_max_parallel_jobs())
 
     # ==========================
     # Phase 4: WAL/증분/PITR 스켈레톤
@@ -114,6 +119,8 @@ class BackupEngine:
         """
         db_session = SessionLocal()
         try:
+            # 동시 실행 제한 진입
+            BackupEngine._sema.acquire()
             backup: Backup = db_session.query(Backup).filter(Backup.id == backup_id).first()
             target_db: Database = db_session.query(Database).filter(Database.id == database_id).first()
             if not backup or not target_db:
@@ -126,12 +133,12 @@ class BackupEngine:
             # 베이스 백업 수행
             base_dir = self.perform_base_backup(target_db)
 
-            # tar.gz 아카이브 생성
+            # tar 아카이브 생성(무압축) → 이후 설정에 따라 압축 적용
             ts = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
             db_dir = Path(settings.BACKUP_BASE_PATH) / target_db.database_name
             db_dir.mkdir(parents=True, exist_ok=True)
-            tar_path = db_dir / f"base_{ts}_{backup_id}.tar.gz"
-            with tarfile.open(tar_path, 'w:gz') as tar:
+            tar_path = db_dir / f"base_{ts}_{backup_id}.tar"
+            with tarfile.open(tar_path, 'w') as tar:
                 for p in base_dir.rglob('*'):
                     try:
                         tar.add(p, arcname=str(p.relative_to(base_dir)))
@@ -147,7 +154,14 @@ class BackupEngine:
             except Exception:
                 pass
 
-            final_path = tar_path
+            # 압축 적용(gzip/zstd/lz4)
+            comp_algo, comp_level = self._get_compression_settings()
+            final_path = self._compress_file(tar_path, comp_algo, comp_level)
+            try:
+                if tar_path.exists():
+                    tar_path.unlink()
+            except Exception:
+                pass
             encrypted = False
             if settings.DEFAULT_ENCRYPTION:
                 enc_path = Path(str(final_path) + '.enc')
@@ -188,6 +202,11 @@ class BackupEngine:
                     backup.duration_seconds = int((backup.completed_at - backup.started_at).total_seconds())
                 db_session.commit()
         finally:
+            # 세마포어 해제
+            try:
+                BackupEngine._sema.release()
+            except Exception:
+                pass
             db_session.close()
 
     def run_incremental_backup(self, database_id: str, backup_id: str) -> None:
@@ -220,19 +239,26 @@ class BackupEngine:
             since = (backup.started_at or datetime.utcnow()) - timedelta(days=1)
             wal_files = self._collect_wal_files_since(archive_dir, since)
 
-            # WAL 스냅샷 tar.gz 생성
+            # WAL 스냅샷 tar 생성(무압축) → 이후 설정에 따라 압축 적용
             ts = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
             db_dir = Path(settings.BACKUP_BASE_PATH) / target_db.database_name
             db_dir.mkdir(parents=True, exist_ok=True)
-            tar_path = db_dir / f"wal_{ts}_{backup_id}.tar.gz"
-            with tarfile.open(tar_path, 'w:gz') as tar:
+            tar_path = db_dir / f"wal_{ts}_{backup_id}.tar"
+            with tarfile.open(tar_path, 'w') as tar:
                 for fp in wal_files:
                     try:
                         tar.add(fp, arcname=str(fp.relative_to(archive_dir)))
                     except Exception:
                         continue
 
-            final_path = tar_path
+            # 압축 적용(gzip/zstd/lz4)
+            comp_algo, comp_level = self._get_compression_settings()
+            final_path = self._compress_file(tar_path, comp_algo, comp_level)
+            try:
+                if tar_path.exists():
+                    tar_path.unlink()
+            except Exception:
+                pass
 
             # 암호화 옵션 적용
             encrypted = False
@@ -349,6 +375,69 @@ class BackupEngine:
         s = self._get_wal_settings()
         return int(s['keep_days'])
 
+    # -------- 압축 설정/실행 유틸 --------
+    def _get_compression_settings(self) -> tuple[str, int]:
+        """압축 알고리즘/레벨 설정값 반환
+        - 알고리즘: settings.DEFAULT_COMPRESSION (gzip|zstd|lz4)
+        - 레벨: config settings.yaml의 backup.compression_level (기본 3)
+        """
+        algo = (getattr(settings, 'DEFAULT_COMPRESSION', 'gzip') or 'gzip').lower()
+        try:
+            cm = get_config_manager()
+            app_settings = cm.load_app_settings() or {}
+            level = int(((app_settings.get('backup') or {}).get('compression_level')) or 3)
+        except Exception:
+            level = 3
+        return algo, min(max(level, 1), 9)
+
+    def _compress_file(self, src: Path, algo: str, level: int) -> Path:
+        """파일 압축(gzip/zstd/lz4). 외부 도구 없으면 gzip으로 폴백.
+        반환: 생성된 압축 파일 경로
+        """
+        try:
+            if algo == 'zstd' and _shutil.which('zstd'):
+                dst = Path(str(src) + '.zst') if src.suffix != '.zst' else src
+                cmd = ['zstd', f'-{level}', '-T0', '-f', str(src), '-o', str(dst)]
+                c = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                if c.returncode != 0:
+                    self.logger.warning('zstd 실패, gzip으로 폴백: %s', c.stderr)
+                else:
+                    return dst
+            if algo == 'lz4' and _shutil.which('lz4'):
+                dst = Path(str(src) + '.lz4') if src.suffix != '.lz4' else src
+                cmd = ['lz4', f'-{level}', '-f', str(src), str(dst)]
+                c = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                if c.returncode != 0:
+                    self.logger.warning('lz4 실패, gzip으로 폴백: %s', c.stderr)
+                else:
+                    return dst
+        except Exception as e:
+            self.logger.warning('외부 압축 도구 실패: %s, gzip으로 폴백', e)
+        # 기본: gzip
+        dst = Path(str(src) + '.gz') if src.suffix != '.gz' else src
+        self._gzip_compress_level(src, dst, level)
+        return dst
+
+    def _gzip_compress_level(self, src: Path, dst: Path, level: int) -> None:
+        """gzip 압축(레벨 적용)
+        - 표준 라이브러리 gzip을 사용하며 compresslevel을 설정
+        """
+        import gzip
+        with open(src, 'rb') as f_in:
+            with gzip.open(dst, 'wb', compresslevel=min(max(level, 1), 9)) as f_out:
+                shutil.copyfileobj(f_in, f_out)
+
+    def _get_max_parallel_jobs(self) -> int:
+        """최대 동시 실행 잡 개수 읽기(settings.yaml의 backup.max_parallel_jobs)
+        - 읽기 실패 시 3으로 폴백
+        """
+        try:
+            cm = get_config_manager()
+            app_settings = cm.load_app_settings() or {}
+            return int(((app_settings.get('backup') or {}).get('max_parallel_jobs')) or 3)
+        except Exception:
+            return 3
+
     def perform_pitr_restore(self, target_time_iso: str) -> None:
         """시점 복구(PITR) 실행(스켈레톤)
         - target_time_iso: ISO 포맷 문자열 (예: '2025-01-01T00:00:00Z')
@@ -441,7 +530,7 @@ class BackupEngine:
             backup.started_at = datetime.utcnow()
             db_session.commit()
 
-            # 출력 파일 경로/이름 생성: backups/<db_name>/<timestamp>_<backup_id>.sql(.gz)
+            # 출력 파일 경로/이름 생성: backups/<db_name>/<timestamp>_<backup_id>.sql
             ts = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
             db_dir = Path(settings.BACKUP_BASE_PATH) / target_db.database_name
             db_dir.mkdir(parents=True, exist_ok=True)
@@ -453,18 +542,16 @@ class BackupEngine:
             # 덤프 실행
             self._run_pg_dump(target_db, sql_path, password)
 
-            # 압축 설정이 gzip 인 경우 gzip 처리
-            compressed_path: Optional[Path] = None
-            if settings.DEFAULT_COMPRESSION.lower() == 'gzip':
-                compressed_path = Path(str(sql_path) + '.gz')
-                self._gzip_compress(sql_path, compressed_path)
-                # 원본 SQL은 공간 절약을 위해 삭제 (원하면 보존 가능)
-                try:
-                    sql_path.unlink(missing_ok=True)
-                except TypeError:
-                    # Python 3.7 호환 (missing_ok 미지원) - 존재 시 삭제
-                    if sql_path.exists():
-                        sql_path.unlink()
+            # 압축 적용(gzip/zstd/lz4)
+            comp_algo, comp_level = self._get_compression_settings()
+            original_size = sql_path.stat().st_size if sql_path.exists() else 0
+            compressed_path: Optional[Path] = self._compress_file(sql_path, comp_algo, comp_level)
+            # 원본 SQL 삭제
+            try:
+                if sql_path.exists():
+                    sql_path.unlink()
+            except Exception:
+                pass
 
             # 파일 메타데이터 계산
             final_path = compressed_path or sql_path
@@ -497,15 +584,13 @@ class BackupEngine:
             backup.checksum = checksum
 
             # 추가 메타데이터: 압축 크기/압축비, pg_dump 버전
-            if compressed_path:
+            if compressed_path and original_size:
+                backup.compressed_size = file_size
                 try:
-                    # 압축 전 크기: 압축 파일명에서 .gz 제거한 원래 sql 파일 크기 (이미 삭제되었을 수 있으므로 예외 처리)
-                    # 삭제 이전의 크기를 알 수 없으면 압축비 계산은 생략
-                    pass
+                    ratio = round((file_size / original_size) * 100, 2)
+                    backup.compression_ratio = ratio
                 except Exception:
                     pass
-                # 최소한 compressed_size는 기록
-                backup.compressed_size = file_size
             # pg_dump 버전 기록
             ver = self._pg_dump_version()
             if ver:

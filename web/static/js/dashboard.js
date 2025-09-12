@@ -19,6 +19,11 @@
   const elFailedLink = document.getElementById("failed-link");
   const elChartSpinner = document.getElementById("chart-spinner");
   const elThemeToggle = document.getElementById("theme-toggle");
+  // 압축 도구 상태 요소
+  const elCompDefault = document.getElementById("comp-default");
+  const elCompLevel = document.getElementById("comp-level");
+  const elCompZstd = document.getElementById("comp-zstd");
+  const elCompLz4 = document.getElementById("comp-lz4");
 
   let backupsChart;
   let averagesChart;
@@ -26,6 +31,19 @@
   // 유틸: 텍스트 설정
   function setText(el, text) {
     if (el) el.textContent = text;
+  }
+
+  // 유틸: 파일 크기를 사람이 읽기 쉬운 형태로 변환
+  function humanSize(n) {
+    if (n == null || isNaN(n)) return "-";
+    const units = ["B", "KB", "MB", "GB", "TB"]; 
+    let s = Number(n);
+    let i = 0;
+    while (s >= 1024 && i < units.length - 1) {
+      s /= 1024;
+      i++;
+    }
+    return `${s.toFixed(2)} ${units[i]}`;
   }
 
   // 시스템 상태 로드
@@ -113,18 +131,32 @@
         } else {
           elRecentBackupsBody.innerHTML = data.recent_backups
             .map((item) => {
-              const dbName =
-                item.database_display_name ||
-                item.database_name ||
-                item.database_id ||
-                "-";
+              const dbLabel = item.database_id || "-";
+              const dbLink = item.database_id ? `/databases/${encodeURIComponent(item.database_id)}` : '#';
               const status = item.status || "-";
+              const ratio =
+                typeof item.compression_ratio === "number"
+                  ? `${item.compression_ratio}%`
+                  : "-";
+              const sizeValue =
+                item.compressed_size != null
+                  ? item.compressed_size
+                  : item.file_size != null
+                  ? item.file_size
+                  : null;
+              const sizeText = humanSize(sizeValue);
               const time = item.created_at
                 ? new Date(item.created_at).toLocaleString()
                 : "-";
-              return `<tr><td>${escapeHtml(dbName)}</td><td>${escapeHtml(
-                status
-              )}</td><td>${escapeHtml(time)}</td></tr>`;
+              const detailLink = item.id ? `/backups/${encodeURIComponent(item.id)}` : '#';
+              return `<tr>
+                <td><a class="text-decoration-none" href="${dbLink}">${escapeHtml(dbLabel)}</a></td>
+                <td>${escapeHtml(status)}</td>
+                <td>${escapeHtml(ratio)}</td>
+                <td>${escapeHtml(sizeText)}</td>
+                <td>${escapeHtml(time)}</td>
+                <td><a class="btn btn-sm btn-outline-primary" href="${detailLink}">보기</a></td>
+              </tr>`;
             })
             .join("");
         }
@@ -152,6 +184,29 @@
             })
             .join("");
         }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // 압축 도구 상태 로드
+  async function loadCompressionStatus() {
+    try {
+      const res = await fetch('/api/backups/tools/compression-status');
+      if (!res.ok) throw new Error('압축 도구 상태 조회 실패');
+      const data = await res.json();
+      if (elCompDefault) elCompDefault.textContent = (data.default_compression || 'gzip').toUpperCase();
+      if (elCompLevel) elCompLevel.textContent = String(data.compression_level ?? '-');
+      if (elCompZstd) {
+        elCompZstd.textContent = `zstd ${data.zstd ? '사용 가능' : '미설치'}`;
+        elCompZstd.classList.remove('text-bg-success','text-bg-secondary');
+        elCompZstd.classList.add(data.zstd ? 'text-bg-success' : 'text-bg-secondary');
+      }
+      if (elCompLz4) {
+        elCompLz4.textContent = `lz4 ${data.lz4 ? '사용 가능' : '미설치'}`;
+        elCompLz4.classList.remove('text-bg-success','text-bg-secondary');
+        elCompLz4.classList.add(data.lz4 ? 'text-bg-success' : 'text-bg-secondary');
       }
     } catch (e) {
       console.error(e);
@@ -277,7 +332,7 @@
 
   // 초기 로드 및 주기적 갱신
   async function refreshAll() {
-    await Promise.all([loadSystemStatus(), loadDashboardData()]);
+    await Promise.all([loadSystemStatus(), loadDashboardData(), loadCompressionStatus()]);
   }
 
   document.addEventListener("DOMContentLoaded", function () {

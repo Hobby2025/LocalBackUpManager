@@ -16,6 +16,7 @@ backup:
   max_parallel_jobs: 3
   default_compression: "gzip"
   default_encryption: true
+  compression_level: 3   # 1(빠름) ~ 9(고압축). zstd/lz4는 내부 매핑 적용
   # WAL 아카이빙/증분/PITR 설정 (Phase 4)
   wal:
     enable: false            # true로 설정 시 WAL 아카이빙 기능 활성화
