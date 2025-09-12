@@ -542,3 +542,14 @@ sudo systemctl start backup-manager
   - [ ] 성능/부하 테스트(덤프 시간/파일 크기/압축률)
   - [ ] 회귀 테스트(기존 PostgreSQL 기능 영향 검증)
   - [ ] 운영/로컬 환경별 실행 가이드 점검
+
+### Phase 9: 웹 UI / UX 개선
+
+- 9.1 Tailwind CSS 도입 및 점진 전환
+  - [ ] 도입 방식 결정 (CDN 시범 vs 빌드 기반 PostCSS + Purge)
+  - [ ] 디자인 토큰 전략 수립 (Tailwind theme 확장 vs common.css 병행)
+  - [ ] 템플릿에 CDN 스크립트 추가 또는 빌드 파이프라인 구성
+  - [ ] 공통 스타일(색상/폰트/간격/볼드) Tailwind theme 정의
+  - [ ] 시범 전환 컴포넌트(헤더/카드/버튼) 적용
+  - [ ] Purge 설정 및 번들 크기/성능 검증
+  - [ ] Bootstrap 의존 구간 목록화 및 점진 축소 계획 수립

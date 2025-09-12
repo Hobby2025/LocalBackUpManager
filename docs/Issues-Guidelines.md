@@ -84,6 +84,11 @@
 **목표**: 다중 DB 유형 지원 및 안정화
 **완료 기준**: MySQL, SQLite 지원 및 안정화
 
+### Phase 9: 웹 UI / UX 개선 (2-3주)
+
+**목표**: 웹 UI/UX 일원화 및 가독성/접근성/일관성 개선, 디자인 시스템 정립(Tailwind 도입 검토)
+**완료 기준**: 핵심 화면(대시보드/DB 관리) 스타일 전환 완료, 번들 크기 최적화(Purge) 및 성능 검증, 접근성 기준 충족
+
 ## 📝 이슈 템플릿
 
 ### 기능 개발 이슈 템플릿
@@ -530,6 +535,29 @@
 - [ ] 운영/로컬 환경별 실행 가이드 점검
 ```
 
+### Phase 9: 웹 UI / UX 개선
+
+#### 9.1 Tailwind CSS 도입 및 점진 전환
+
+```markdown
+제목: [Phase9][UI] Tailwind CSS 도입 및 점진 전환 계획 수립/실행
+라벨: type/chore, component/frontend, priority/medium, status/ready
+마일스톤: Phase 9: 웹 UI / UX 개선
+
+결정 사항:
+
+- [ ] 도입 방식 결정 (CDN 시범 vs 빌드 기반 PostCSS + Purge)
+- [ ] 디자인 토큰 전략 (Tailwind theme 확장 vs common.css 병행)
+
+작업 내용:
+
+- [ ] 템플릿에 CDN 스크립트 추가 또는 빌드 파이프라인 구성(tailwind.config.js, postcss.config.js)
+- [ ] 공통 스타일 이관: 색상/폰트/간격/볼드 → Tailwind theme로 정의
+- [ ] 시범 전환 컴포넌트(헤더/카드/버튼) 3종 적용
+- [ ] Purge(콘텐츠 스캔) 설정으로 미사용 CSS 제거(빌드 방식 선택 시)
+- [ ] 성능/번들 크기 검증 및 회귀 테스트
+- [ ] Bootstrap 의존 구간 목록화 및 점진 축소 계획 수립
+
 ## 🔄 이슈 관리 워크플로우
 
 ### 1. 이슈 생성
@@ -579,13 +607,14 @@
 - `hotfix/issue-{number}-{brief-description}`
 
 ### 커밋 메시지 규칙
-
 ```
+
 type(scope): 간단한 설명
 
 상세 설명 (선택사항)
 
 Fixes #이슈번호
+
 ```
 
 **타입**:
@@ -599,3 +628,4 @@ Fixes #이슈번호
 - `chore`: 빌드 프로세스 또는 보조 도구 변경
 
 이 가이드를 통해 체계적이고 효율적인 프로젝트 관리가 가능합니다.
+```
