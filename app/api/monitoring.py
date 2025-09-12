@@ -65,6 +65,39 @@ async def get_system_status(db: Session = Depends(get_db)):
             detail="시스템 상태 조회 중 오류가 발생했습니다."
         )
 
+@router.get("/db-status", summary="데이터베이스 연결 상태 조회")
+async def get_database_status(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """등록된 데이터베이스들의 연결 상태와 최근 테스트 시간을 조회합니다."""
+    try:
+        query = db.query(Database).filter(Database.is_active == True)
+        total = query.count()
+        items = query.order_by(Database.updated_at.desc()).offset(skip).limit(limit).all()
+        results = []
+        for it in items:
+            results.append({
+                "id": it.id,
+                "name": it.name,
+                "display_name": it.display_name,
+                "environment": it.environment,
+                "priority": it.priority,
+                "connection_status": it.connection_status,
+                "last_connection_test": it.last_connection_test.isoformat() if it.last_connection_test else None,
+            })
+        return {
+            "total": total,
+            "databases": results
+        }
+    except Exception as e:
+        logger.error(f"데이터베이스 상태 조회 오류: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="데이터베이스 상태 조회 중 오류가 발생했습니다."
+        )
+
 @router.get("/dashboard", summary="대시보드 데이터 조회")
 async def get_dashboard_data(db: Session = Depends(get_db)):
     """대시보드에 필요한 종합 데이터를 조회합니다."""

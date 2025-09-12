@@ -16,6 +16,7 @@ from pathlib import Path
 from app.config import settings
 from app.database import init_database
 from app.api import databases, backups, schedules, monitoring
+from app.core.database_manager import db_manager
 
 # 로깅 설정
 logging.basicConfig(
@@ -51,6 +52,12 @@ async def lifespan(app: FastAPI):
     
     # 종료 시 정리
     logger.info("클라우드 데이터베이스 백업 시스템 종료 중...")
+    # 연결 풀 정리
+    try:
+        db_manager.close_all()
+        logger.info("데이터베이스 연결 풀 정리 완료")
+    except Exception as e:
+        logger.error(f"연결 풀 정리 중 오류: {e}")
 
 # FastAPI 앱 초기화
 app = FastAPI(

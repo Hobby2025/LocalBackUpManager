@@ -10,6 +10,7 @@ import logging
 
 from app.database import get_db, Database, get_all_databases, get_database_by_id, create_database_record
 from app.config import get_config_manager
+from app.core.database_manager import db_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -186,14 +187,30 @@ async def test_database_connection(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="데이터베이스를 찾을 수 없습니다."
             )
-        
-        # TODO: 실제 연결 테스트 구현
-        # 현재는 모의 응답
+
+        # 실제 연결 테스트 수행 (현재 password_encrypted는 평문 비밀번호 사용 가정)
+        success, elapsed_ms, error_msg = db_manager.test_connection(
+            host=database.host,
+            port=database.port,
+            dbname=database.database_name,
+            user=database.username,
+            password=database.password_encrypted,
+            sslmode=database.ssl_mode,
+            timeout_seconds=5,
+        )
+
+        # 상태 및 타임스탬프 갱신
+        from datetime import datetime
+        database.last_connection_test = datetime.utcnow()
+        database.connection_status = "connected" if success else "error"
+        db.commit()
+        db.refresh(database)
+
         return {
             "database_id": database_id,
-            "status": "success",
-            "message": "데이터베이스 연결이 성공했습니다.",
-            "response_time_ms": 150
+            "status": "success" if success else "failed",
+            "message": "데이터베이스 연결이 성공했습니다." if success else (error_msg or "연결 오류가 발생했습니다."),
+            "response_time_ms": round(elapsed_ms, 2)
         }
         
     except HTTPException:
