@@ -17,7 +17,8 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 
-from app.database import get_db, Database, Backup, Schedule, SystemLog, Notification
+from app.database import get_db, Database, Backup, Schedule, SystemLog, Notification, User
+from app.core.auth import is_auth_enabled, get_current_user_from_request
 from app.core.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
@@ -292,11 +293,24 @@ async def list_reports(db: Session = Depends(get_db)):
 
 
 @router.delete("/reports/{filename}", summary="보고서 삭제")
-async def delete_report(filename: str, db: Session = Depends(get_db)):
+async def delete_report(filename: str, db: Session = Depends(get_db), request=None):
     """보고서 파일을 안전하게 삭제
     - filename은 report_*.csv 패턴만 허용
     """
     try:
+        # 인증/권한 체크: 인증 활성화 시 admin 역할만 허용
+        if is_auth_enabled():
+            # Request 주입을 위해 FastAPI가 request 객체를 전달함
+            from fastapi import Request
+            if not isinstance(request, Request):
+                raise HTTPException(status_code=401, detail="인증 필요")
+            username = get_current_user_from_request(request)
+            if not username:
+                raise HTTPException(status_code=401, detail="인증 필요")
+            user = db.query(User).filter(User.username == username, User.is_active == True).first()
+            if not user or (user.role or '').lower() != 'admin':
+                raise HTTPException(status_code=403, detail="권한 없음")
+
         # 파일명 패턴 검증 (디렉터리 탈출 방지)
         if not filename.startswith("report_") or not filename.endswith(".csv"):
             raise HTTPException(status_code=400, detail="허용되지 않는 파일명")

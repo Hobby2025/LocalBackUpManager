@@ -3,7 +3,7 @@
 데이터베이스 등록, 수정, 삭제, 조회 기능
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import logging
@@ -11,6 +11,7 @@ import logging
 from app.database import get_db, Database, get_all_databases, get_database_by_id, create_database_record
 from app.config import get_config_manager
 from app.core.database_manager import db_manager
+from app.core.auth import require_roles
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -119,9 +120,16 @@ async def get_database(
 @router.post("/", summary="새 데이터베이스 등록")
 async def create_database(
     database_data: dict,
+    request: Request,
     db: Session = Depends(get_db)
 ):
-    """새로운 데이터베이스를 시스템에 등록합니다."""
+    """새로운 데이터베이스를 시스템에 등록합니다. (admin 권한 필요)"""
+    # 관리자 권한 검사
+    if not require_roles(request, ("admin",)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자 권한이 필요합니다."
+        )
     try:
         # 필수 필드 검증
         required_fields = ["name", "display_name", "host", "database_name", "username", "password", "environment", "priority"]
@@ -211,9 +219,16 @@ async def update_database(
 @router.delete("/{database_id}", summary="데이터베이스 삭제")
 async def delete_database(
     database_id: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
-    """데이터베이스를 시스템에서 제거합니다."""
+    """데이터베이스를 시스템에서 제거합니다. (admin 권한 필요)"""
+    # 관리자 권한 검사
+    if not require_roles(request, ("admin",)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자 권한이 필요합니다."
+        )
     try:
         database = get_database_by_id(db, database_id)
         if not database:

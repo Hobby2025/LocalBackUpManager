@@ -3,7 +3,7 @@
 백업 실행, 조회, 복원, 통계 기능
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi import UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -11,6 +11,7 @@ import logging
 
 from app.database import get_db, Backup, get_backups_by_database, create_backup_record
 from app.core.backup_engine import BackupEngine  # 백업 엔진
+from app.core.auth import require_roles
 from datetime import datetime
 from pathlib import Path
 import os
@@ -375,9 +376,16 @@ async def upload_benchmark(file: UploadFile = File(...)):
 @router.post("/{backup_id}/cancel", summary="백업 취소")
 async def cancel_backup(
     backup_id: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
-    """실행 중인 백업을 취소합니다."""
+    """실행 중인 백업을 취소합니다. (admin 권한 필요)"""
+    # 관리자 권한 검사
+    if not require_roles(request, ("admin",)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="관리자 권한이 필요합니다."
+        )
     try:
         backup = db.query(Backup).filter(Backup.id == backup_id).first()
         if not backup:

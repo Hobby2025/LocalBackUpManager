@@ -35,6 +35,10 @@ from app.core.notification_service import NotificationService
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import secrets
 
+# 암호화 포맷 매직 헤더
+# 포맷: [MAGIC(4='LBM1')][key_id_len(1)][key_id][nonce(12)][ciphertext+tag]
+MAGIC_V1 = b"LBM1"
+
 
 class BackupEngine:
     """기본 백업 엔진 클래스"""
@@ -48,6 +52,59 @@ class BackupEngine:
         # 전역 동시 실행 제한(세마포어) 초기화 - 프로세스 내에서만 유효
         if not hasattr(BackupEngine, "_sema"):
             BackupEngine._sema = threading.Semaphore(self._get_max_parallel_jobs())
+
+    # -------- 보안 키 로딩 유틸 --------
+    def _get_active_encryption_key(self) -> Optional[str]:
+        """settings.yaml의 security.encryption 설정에서 활성 키를 조회하여 반환
+        - 구조: security.encryption.active_key_id, security.encryption.keys: [{id, key}]
+        - key는 32자 문자열(UTF-8) 권장
+        - 유효하지 않으면 None 반환
+        """
+        try:
+            cm = get_config_manager()
+            app_settings = cm.load_app_settings() or {}
+            sec = (app_settings.get('security') or {})
+            enc = (sec.get('encryption') or {})
+            active_id = (enc.get('active_key_id') or '').strip()
+            keys = enc.get('keys') or []
+            if not active_id or not isinstance(keys, list):
+                return None
+            for item in keys:
+                try:
+                    if (item or {}).get('id') == active_id:
+                        k = (item or {}).get('key')
+                        if isinstance(k, str) and len(k) == 32:
+                            return k
+                except Exception:
+                    continue
+        except Exception:
+            return None
+        return None
+
+    def _get_active_encryption_key_info(self) -> Optional[tuple[str, str]]:
+        """활성 키의 (key_id, key_str) 튜플 반환. 없으면 None
+        - 키 문자열은 32자(UTF-8)로 가정
+        """
+        try:
+            cm = get_config_manager()
+            app_settings = cm.load_app_settings() or {}
+            sec = (app_settings.get('security') or {})
+            enc = (sec.get('encryption') or {})
+            active_id = (enc.get('active_key_id') or '').strip()
+            keys = enc.get('keys') or []
+            if not active_id or not isinstance(keys, list):
+                return None
+            for item in keys:
+                try:
+                    if (item or {}).get('id') == active_id:
+                        k = (item or {}).get('key')
+                        if isinstance(k, str) and len(k) == 32:
+                            return active_id, k
+                except Exception:
+                    continue
+        except Exception:
+            return None
+        return None
 
     # ==========================
     # Phase 4: WAL/증분/PITR 스켈레톤
@@ -167,7 +224,12 @@ class BackupEngine:
             encrypted = False
             if settings.DEFAULT_ENCRYPTION:
                 enc_path = Path(str(final_path) + '.enc')
-                self._aes_gcm_encrypt_file(final_path, enc_path, settings.ENCRYPTION_KEY)
+                key_info = self._get_active_encryption_key_info()
+                if not key_info:
+                    raise ValueError("활성 암호화 키가 설정되어 있지 않습니다(security.encryption).")
+                key_id, key_str = key_info
+                # 개선된 포맷으로 암호화 (매직/키ID 포함)
+                self._aes_gcm_encrypt_file_v2(final_path, enc_path, key_id, key_str)
                 try:
                     final_path.unlink(missing_ok=True)
                 except TypeError:
@@ -276,7 +338,12 @@ class BackupEngine:
             encrypted = False
             if settings.DEFAULT_ENCRYPTION:
                 enc_path = Path(str(final_path) + '.enc')
-                self._aes_gcm_encrypt_file(final_path, enc_path, settings.ENCRYPTION_KEY)
+                # 활성 암호화 키 조회 (settings.yaml의 security.encryption)
+                key_info = self._get_active_encryption_key_info()
+                if not key_info:
+                    raise ValueError("활성 암호화 키가 설정되어 있지 않습니다(security.encryption).")
+                key_id, key_str = key_info
+                self._aes_gcm_encrypt_file_v2(final_path, enc_path, key_id, key_str)
                 try:
                     final_path.unlink(missing_ok=True)
                 except TypeError:
@@ -658,6 +725,75 @@ class BackupEngine:
         with open(dst, 'wb') as f:
             f.write(nonce + ciphertext)
 
+    def _aes_gcm_encrypt_file_v2(self, src: Path, dst: Path, key_id: str, key_str: str) -> None:
+        """AES-256-GCM 파일 암호화(V2 포맷)
+        - 포맷: [MAGIC(4='LBM1')][key_id_len(1)][key_id][nonce(12)][ciphertext+tag]
+        - key_id는 settings.yaml의 security.encryption.active_key_id
+        """
+        if not key_str or len(key_str) != 32:
+            raise ValueError("ENCRYPTION_KEY는 32자여야 합니다.")
+        if not key_id:
+            raise ValueError("key_id가 비어 있습니다.")
+        key = key_str.encode('utf-8')
+        aesgcm = AESGCM(key)
+        nonce = secrets.token_bytes(12)
+        plaintext = src.read_bytes()
+        ciphertext = aesgcm.encrypt(nonce, plaintext, None)
+        key_id_bytes = key_id.encode('utf-8')
+        if len(key_id_bytes) > 255:
+            raise ValueError("key_id 길이는 255바이트 이하여야 합니다.")
+        with open(dst, 'wb') as f:
+            f.write(MAGIC_V1)
+            f.write(bytes([len(key_id_bytes)]))
+            f.write(key_id_bytes)
+            f.write(nonce)
+            f.write(ciphertext)
+
+    def _aes_gcm_decrypt_file_v2(self, src: Path, dst: Path, key_lookup: dict[str, str]) -> None:
+        """AES-256-GCM 파일 복호화(V2 포맷)
+        - key_lookup: {key_id: key_str(32자)} 딕셔너리
+        - 입력 포맷이 V1이 아닐 경우, 구버전 포맷([nonce][ciphertext])로 간주하고 key_lookup의 active 키를 사용 시도
+        """
+        data = src.read_bytes()
+        offset = 0
+        try:
+            if data[:4] == MAGIC_V1:
+                offset = 4
+                key_id_len = data[offset]
+                offset += 1
+                key_id = data[offset:offset+key_id_len].decode('utf-8')
+                offset += key_id_len
+                nonce = data[offset:offset+12]
+                offset += 12
+                ciphertext = data[offset:]
+                key_str = key_lookup.get(key_id)
+                if not key_str or len(key_str) != 32:
+                    raise ValueError("해당 key_id에 대한 올바른 키가 없습니다.")
+                key = key_str.encode('utf-8')
+                aesgcm = AESGCM(key)
+                plaintext = aesgcm.decrypt(nonce, ciphertext, None)
+                dst.write_bytes(plaintext)
+                return
+        except Exception as e:
+            # 매직 포맷 실패 시 구버전 처리 시도
+            pass
+        # 구버전 포맷: [nonce(12)][ciphertext]
+        if len(data) < 13:
+            raise ValueError("암호문 형식이 올바르지 않습니다.")
+        nonce = data[:12]
+        ciphertext = data[12:]
+        # key_lookup의 첫 번째 키를 사용(호환 목적)
+        for key_str in key_lookup.values():
+            if key_str and len(key_str) == 32:
+                try:
+                    aesgcm = AESGCM(key_str.encode('utf-8'))
+                    plaintext = aesgcm.decrypt(nonce, ciphertext, None)
+                    dst.write_bytes(plaintext)
+                    return
+                except Exception:
+                    continue
+        raise ValueError("유효한 복호화 키를 찾을 수 없습니다.")
+
     def _pg_dump_version(self) -> Optional[str]:
         """pg_dump 버전 문자열 조회 (없으면 None)"""
         try:
@@ -715,7 +851,11 @@ class BackupEngine:
             encrypted = False
             if settings.DEFAULT_ENCRYPTION:
                 enc_path = Path(str(final_path) + '.enc')
-                self._aes_gcm_encrypt_file(final_path, enc_path, settings.ENCRYPTION_KEY)
+                # 활성 암호화 키 조회 (settings.yaml의 security.encryption)
+                key_str = self._get_active_encryption_key()
+                if not key_str:
+                    raise ValueError("활성 암호화 키가 설정되어 있지 않습니다(security.encryption).")
+                self._aes_gcm_encrypt_file(final_path, enc_path, key_str)
                 # 평문 파일 삭제
                 try:
                     final_path.unlink(missing_ok=True)
