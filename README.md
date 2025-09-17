@@ -383,173 +383,48 @@ sudo systemctl start backup-manager
 ### Phase 1: 핵심 인프라 구축
 
 - 1.1 프로젝트 구조 설정 및 개발 환경 구축
-
-  - [x] 디렉토리 구조 생성
-  - [x] requirements.txt 작성
-  - [x] 기본 설정 파일 구조 설계
-  - [x] 개발 환경 설정 문서 작성
-
 - 1.2 FastAPI 기반 REST API 서버 구현
-
-  - [x] FastAPI 애플리케이션 초기 설정
-  - [x] 기본 라우터 구조 설계
-  - [x] CORS 및 미들웨어 설정
-  - [x] 기본 엔드포인트 구현
-
 - 1.3 PostgreSQL 메타데이터 데이터베이스 설계 및 구현
-
-  - [x] PostgreSQL 데이터베이스 스키마 설계
-  - [x] SQLAlchemy 모델 정의 (UUID, JSONB 활용)
-  - [x] Alembic 마이그레이션 시스템 구축
-  - [x] 데이터베이스 초기화 스크립트 작성
-  - [x] 트리거 및 뷰 생성
-  - [x] 인덱스 최적화 적용
-
 - 1.4 기본 백업 엔진 구현 (pg_dump 기반)
-
-  - [x] BackupEngine 클래스 기본 구조
-  - [x] pg_dump 실행 로직 구현
-  - [x] 백업 파일 압축 기능
-  - [x] 기본 암호화 기능
-  - [x] 백업 메타데이터 저장
 
 ### Phase 2: 다중 데이터베이스 지원
 
 - 2.1 DatabaseManager 구현
-
-  - [x] 다중 DB 연결 관리
-  - [x] 연결 풀 관리
-  - [x] DB 상태 모니터링
-  - [x] 연결 테스트 기능
-
 - 2.2 설정 파일 시스템
-  - [x] YAML 설정 파일 구조 설계
-  - [x] 환경변수 기반 보안 설정
-  - [x] 설정 검증 로직
-  - [x] 동적 설정 로드
 
 ### Phase 3: 웹 인터페이스 개발
 
 - 3.1 대시보드 페이지
-
-  - [x] 반응형 대시보드 레이아웃
-  - [x] 실시간 상태 모니터링 위젯
-  - [x] Chart.js 기반 통계 차트
-  - [x] 시스템 상태 표시
-
 - 3.2 데이터베이스 관리 페이지
-  - [x] DB 목록 및 상태 표시
-  - [x] DB 추가/수정/삭제 폼
-  - [x] 연결 테스트 기능
-  - [x] DB별 설정 관리
 
 ### Phase 4: 고급 기능 및 최적화
 
 - 4.1 증분 백업 구현
-
-  - [x] WAL 아카이빙 설정
-  - [x] 증분 백업 로직 구현
-  - [x] PITR 지원 기능
-  - [x] 백업 체인 관리
-
 - 4.2 성능 최적화
-  - [x] LZ4, ZSTD 압축 알고리즘 추가
-  - [x] 병렬 백업 처리 최적화
-  - [x] 메모리 사용량 최적화
-  - [x] 성능 벤치마크 테스트
 
 ### Phase 5: 알림 및 모니터링 시스템
 
 - 5.1 알림 시스템 구현
-
-  - [x] Email 알림 구현
-  - [x] Slack 웹훅 연동
-  - [x] Discord 웹훅 연동
-  - [x] 계층적 알림 정책
-
 - 5.2 모니터링 대시보드
-  - [x] 실시간 백업 상태 모니터링
-  - [x] 성능 메트릭 수집
-  - [x] 자동 리포트 생성
-  - [x] 알림 이력 관리
 
 ### Phase 6: 보안 및 컴플라이언스
 
 - 6.1 보안 강화
-
-  - [x] AES-256 암호화 강화
-  - [x] 암호화 키 관리 시스템
-  - [x] 접근 권한 관리
-  - [x] SSL/TLS 연결 강제
-
 - 6.2 감사 시스템
-  - [x] 상세 감사 로그 시스템
-  - [x] 접근 기록 추적
-  - [x] 규정 준수 리포트
-  - [x] 보안 정책 자동 적용
 
 ### Phase 7: 테스트 및 배포 준비
 
 - 7.1 테스트 시스템
-
-  - [ ] 단위 테스트 작성 (90% 커버리지)
-  - [ ] 통합 테스트 구현
-  - [ ] 성능/부하 테스트(덤프 시간/파일 크기/압축률)
-  - [ ] 회귀 테스트(기존 PostgreSQL 기능 영향 검증)
-  - [ ] 운영/로컬 환경별 실행 가이드 점검
-
 - 7.2 배포 시스템
-  - [ ] Dockerfile 작성
-  - [ ] docker-compose.yml 구성
-  - [ ] CI/CD 파이프라인 구축
-  - [ ] 운영 문서 작성
 
 ### Phase 8: DB Type 확장 및 안정화
 
 - 8.1 메타모델 확장 및 마이그레이션 (db_type 추가)
-
-  - [ ] Database 테이블에 db_type 컬럼 추가 (postgresql/mysql/sqlite)
-  - [ ] Alembic 마이그레이션 생성 및 적용 가이드
-  - [ ] API 입력 검증에 db_type 반영 (생성/수정)
-  - [ ] config/databases.yaml 예시 업데이트 (DB 유형별 샘플)
-
 - 8.2 DatabaseManager 어댑터화 (연결/풀/테스트)
-
-  - [ ] DatabaseAdapter 인터페이스 정의(create_pool/getconn/putconn/close_all/test_connection)
-  - [ ] PostgresAdapter 구현(기존 psycopg2 기반 이식)
-  - [ ] MySQLAdapter 구현(PyMySQL 또는 mysqlclient 기반, 풀 전략 결정)
-  - [ ] SQLiteAdapter 구현(sqlite3, 풀 불필요 처리)
-  - [ ] /api/databases/\* 엔드포인트가 어댑터 기반으로 동작하도록 변경
-
 - 8.3 BackupEngine 백업 전략 어댑터
-
-  - [ ] BackupAdapter 인터페이스 정의(run_backup, 옵션 구성)
-  - [ ] PostgresBackupAdapter(pg_dump) 유지/정리
-  - [ ] MySQLBackupAdapter(mysqldump, 인증/옵션/에러 처리)
-  - [ ] SQLiteBackupAdapter(일관성 있는 파일 스냅샷/backup API)
-  - [ ] 공통 후처리 재사용(압축/암호화/체크섬/메타데이터)
-
 - 8.4 설정·문서·배포 업데이트
-
-  - [ ] README/Development-Guidelines에 다중 DB 지원 가이드 추가
-  - [ ] databases.yaml에 mysql/sqlite 예시 추가 및 주석 강화
-  - [ ] requirements.txt에 MySQL 드라이버 추가(PyMySQL 또는 mysqlclient) 검토
-  - [ ] Dockerfile에 mysql-client(mysqldump) 설치 추가
-
 - 8.5 통합 및 안정화 테스트
-
-  - [ ] DB 유형별 연결 테스트/E2E 백업 시나리오 케이스 작성
-  - [ ] 성능/부하 테스트(덤프 시간/파일 크기/압축률)
-  - [ ] 회귀 테스트(기존 PostgreSQL 기능 영향 검증)
-  - [ ] 운영/로컬 환경별 실행 가이드 점검
 
 ### Phase 9: 웹 UI / UX 개선
 
 - 9.1 Tailwind CSS 도입 및 점진 전환
-  - [ ] 도입 방식 결정 (CDN 시범 vs 빌드 기반 PostCSS + Purge)
-  - [ ] 디자인 토큰 전략 수립 (Tailwind theme 확장 vs common.css 병행)
-  - [ ] 템플릿에 CDN 스크립트 추가 또는 빌드 파이프라인 구성
-  - [ ] 공통 스타일(색상/폰트/간격/볼드) Tailwind theme 정의
-  - [ ] 시범 전환 컴포넌트(헤더/카드/버튼) 적용
-  - [ ] Purge 설정 및 번들 크기/성능 검증
-  - [ ] Bootstrap 의존 구간 목록화 및 점진 축소 계획 수립
