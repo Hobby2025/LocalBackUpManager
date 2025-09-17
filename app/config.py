@@ -112,9 +112,49 @@ class ConfigManager:
         return self.save_yaml_config("databases.yaml", config)
     
     def load_app_settings(self) -> Dict[str, Any]:
-        """애플리케이션 설정 로드"""
-        return self.load_yaml_config("settings.yaml")
+        """애플리케이션 설정 로드 (환경변수 기반 암호화 키 자동 통합)"""
+        data = self.load_yaml_config("settings.yaml")
+        # 환경변수 기반 암호화 키 통합
+        data = self._integrate_env_encryption_keys(data)
+        return data
     
+    def _integrate_env_encryption_keys(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """환경변수 ENCRYPTION_KEY를 YAML encryption 섹션과 통합
+        - 환경변수가 있으면 'env' 키 ID로 자동 등록하고 활성화
+        - YAML에 이미 설정이 있으면 환경변수를 우선하되 기존 키들은 보존
+        """
+        env_key = os.getenv('ENCRYPTION_KEY')
+        if not env_key or len(env_key) != 32:
+            return data
+        
+        # security 섹션 확보
+        if 'security' not in data:
+            data['security'] = {}
+        if 'encryption' not in data['security']:
+            data['security']['encryption'] = {}
+        
+        enc = data['security']['encryption']
+        
+        # 기존 keys 배열 확보
+        if 'keys' not in enc or not isinstance(enc['keys'], list):
+            enc['keys'] = []
+        
+        # 환경변수 키를 'env' ID로 추가/업데이트
+        env_key_found = False
+        for item in enc['keys']:
+            if isinstance(item, dict) and item.get('id') == 'env':
+                item['key'] = env_key
+                env_key_found = True
+                break
+        
+        if not env_key_found:
+            enc['keys'].append({'id': 'env', 'key': env_key})
+        
+        # 활성 키를 환경변수 키로 설정
+        enc['active_key_id'] = 'env'
+        
+        return data
+
     def get_database_config(self, db_id: str) -> Optional[Dict[str, Any]]:
         """특정 데이터베이스 설정 조회"""
         databases_config = self.load_databases_config()

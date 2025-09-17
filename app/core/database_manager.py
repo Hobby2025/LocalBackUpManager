@@ -18,6 +18,7 @@ from typing import Dict, Optional, Tuple
 
 import psycopg2
 from psycopg2.pool import SimpleConnectionPool
+from app.config import get_config_manager
 
 # 내부 모델에 직접 의존하지 않도록 최소한의 인터페이스만 사용
 # app.api 계층에서 SQLAlchemy 모델(Database)을 전달받아 필요한 필드만 활용
@@ -36,7 +37,7 @@ class DatabaseManager:
     def _make_conn_params(self, *, host: str, port: int, dbname: str, user: str, password: Optional[str], sslmode: Optional[str]) -> Dict[str, object]:
         """psycopg2 연결 파라미터 구성
         - connect_timeout 기본 5초
-        - sslmode는 Database.ssl_mode 값을 그대로 전달 (없으면 require 기본 가정 가능)
+        - sslmode는 Database.ssl_mode 값을 그대로 전달 (없으면 settings의 security.db_ssl_mode_default 사용, 최종 폴백은 require)
         """
         params: Dict[str, object] = {
             "host": host,
@@ -47,9 +48,25 @@ class DatabaseManager:
         }
         if password:
             params["password"] = password
-        if sslmode:
-            params["sslmode"] = sslmode
+        # sslmode가 지정되지 않았으면 설정의 기본값을 사용 (보안/레거시 환경 모두 대응)
+        params["sslmode"] = sslmode or self._get_default_ssl_mode()
         return params
+
+    def _get_default_ssl_mode(self) -> str:
+        """설정 파일(settings.yaml)의 security.db_ssl_mode_default를 읽어 기본 sslmode 반환
+        - 허용 값: disable | prefer | require | verify-ca | verify-full
+        - 잘못된 값이거나 오류 시 'require'로 폴백
+        """
+        try:
+            cm = get_config_manager()
+            app_settings = cm.load_app_settings() or {}
+            sec = (app_settings.get('security') or {})
+            mode = str(sec.get('db_ssl_mode_default') or '').strip().lower()
+            if mode in {"disable", "prefer", "require", "verify-ca", "verify-full"}:
+                return mode
+        except Exception:
+            pass
+        return "require"
 
     def _pool_key(self, database_id: str) -> str:
         return str(database_id)

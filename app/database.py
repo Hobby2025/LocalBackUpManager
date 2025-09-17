@@ -55,6 +55,22 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # 데이터베이스 모델 정의
+class User(Base):
+    """사용자 계정 모델 (전통적 DB 기반 로그인)
+    - 비밀번호는 PBKDF2-HMAC-SHA256 해시(Base64)와 salt로 저장
+    - role/활성화 플래그 포함
+    """
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    username = Column(String(150), unique=True, nullable=False, index=True)
+    full_name = Column(String(255))
+    password_hash = Column(String(255), nullable=False)  # Base64 PBKDF2
+    password_salt = Column(String(255), nullable=False)
+    role = Column(String(50), default="admin")  # admin, operator, viewer 등
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 class Database(Base):
     """데이터베이스 정보 모델"""
     __tablename__ = "databases"

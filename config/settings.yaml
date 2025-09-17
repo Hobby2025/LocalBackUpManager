@@ -1,71 +1,76 @@
-# 클라우드 데이터베이스 백업 시스템 기본 설정 파일
-# 이 파일을 복사하여 settings.yaml로 사용하세요
-
-# 애플리케이션 기본 설정
 app:
-  name: "Cloud Database Backup Manager"
-  version: "1.0.0"
   debug: false
-  host: "0.0.0.0"
+  host: 0.0.0.0
+  name: Cloud Database Backup Manager
   port: 8000
-
-# 백업 기본 설정
+  version: 1.0.0
 backup:
-  base_path: "./data/backups"
-  temp_path: "./data/temp"
-  max_parallel_jobs: 3
-  default_compression: "gzip"
+  base_path: ./data/backups
+  compression_level: 3
+  default_compression: gzip
   default_encryption: true
-  compression_level: 3 # 1(빠름) ~ 9(고압축). zstd/lz4는 내부 매핑 적용
-  # WAL 아카이빙/증분/PITR 설정 (Phase 4)
-  wal:
-    enable: false # true로 설정 시 WAL 아카이빙 기능 활성화
-    archive_dir: "./data/wal_archive" # WAL 보관 경로
-    keep_days: 7 # 보존 일수
-    base_backup_tool: "pg_basebackup" # 기본 전체 베이스 백업 도구
+  max_parallel_jobs: 3
   pitr:
-    enable: false # 시점 복구(PITR) 기능 사용 여부
-    recovery_window_days: 7 # 복구 가능 윈도우 일수
-
-# 알림 설정 (Phase 5.1)
+    enable: false
+    recovery_window_days: 7
+  temp_path: ./data/temp
+  wal:
+    archive_dir: ./data/wal_archive
+    base_backup_tool: pg_basebackup
+    enable: false
+    keep_days: 7
+logging:
+  backup_count: 5
+  file_path: ./data/logs/app.log
+  level: INFO
+  max_size: 10MB
 notifications:
-  enable: true
   channels:
+    discord: false
     email: false
     slack: false
-    discord: false
-  rules:
-    notify_on_success: false # 백업 성공시 알림
-    warn_on_thresholds: true # 임계값 초과 시 경고
-    thresholds:
-      compression_ratio_percent_gt: 80 # (압축후/원본)*100 % 가 80%보다 크면(압축효율 낮음) 경고
-      duration_seconds_gt: 600 # 소요시간이 600초(10분) 초과시 경고
-  weekly_summary:
-    enable: false # 주간 요약 알림 사용 여부
-    schedule_cron: "0 9 * * MON" # 월요일 09:00 (참고용, 스케줄러 연동 별도)
-  email:
-    smtp_host: "smtp.example.com"
-    smtp_port: 587
-    use_tls: true
-    username: ""
-    password: ""
-    from_address: "noreply@example.com"
-    to_addresses: []
-  slack:
-    webhook_url: ""
   discord:
     webhook_url: ""
-
-# 보존 정책
+  email:
+    from_address: noreply@example.com
+    password: ""
+    smtp_host: smtp.example.com
+    smtp_port: 587
+    to_addresses: []
+    use_tls: true
+    username: ""
+  enable: true
+  rules:
+    notify_on_success: false
+    thresholds:
+      compression_ratio_percent_gt: 80
+      duration_seconds_gt: 600
+    warn_on_thresholds: true
+  slack:
+    webhook_url: ""
+  weekly_summary:
+    enable: false
+    schedule_cron: 0 9 * * MON
 retention:
   default_policy:
-    daily: 30 # 30일
-    weekly: 12 # 12주
-    monthly: 12 # 12개월
+    daily: 30
+    monthly: 12
+    weekly: 12
+security:
+  enable_hsts: false
+  enable_https_redirect: false
+  # 로그인 기능 사용 여부
+  enable_auth: true
+  # 허용 호스트(TrustedHost). 비워두면 '*' 처리. 운영에서는 서비스 도메인을 명시하세요.
+  allowed_hosts: []
+  # CORS 허용 오리진. 비워두면 '*' 처리.
+  cors_origins: []
 
-# 로깅 설정
-logging:
-  level: "INFO"
-  file_path: "./data/logs/app.log"
-  max_size: "10MB"
-  backup_count: 5
+  # 세션 만료(초)
+  session_ttl: 28800
+
+  # 암호화 키 관리(스켈레톤)
+  # active_key_id에 해당하는 키(id, key) 쌍을 사용합니다. key는 32자(UTF-8) 권장.
+  encryption:
+    active_key_id: ""
+    keys: [] # 예: [{ id: "k1", key: "32lengthstringkey................" }]

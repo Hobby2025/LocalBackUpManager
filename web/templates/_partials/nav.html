@@ -43,15 +43,44 @@
             >알림</a
           >
         </li>
-        <li class="nav-item ms-2">
-          <button
-            id="theme-toggle"
-            class="btn btn-outline-light btn-sm d-flex align-items-center gap-1"
-            type="button"
-            title="화면 모드 토글"
-          >
-            <span data-icon>☀️</span>
-          </button>
+        <!-- 설정(톱니바퀴) 드롭다운: 테마/보안 모드/DB SSL 기본 모드 -->
+        <li class="nav-item dropdown ms-2">
+          <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="appSettingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="설정">
+            ⚙️
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="appSettingsDropdown" style="min-width: 260px;">
+            <li class="px-3 py-2">
+              <!-- 테마 토글: 기존 JS 연동을 위해 id 유지 -->
+              <button id="theme-toggle" class="btn btn-outline-secondary btn-sm w-100 d-flex align-items-center justify-content-center gap-2" type="button" title="화면 모드 토글">
+                <span data-icon>☀️</span>
+                <span>테마 토글</span>
+              </button>
+            </li>
+            <li><hr class="dropdown-divider" /></li>
+            <li class="px-3 py-2">
+              <!-- 보안 모드 스위치: HTTPS 리다이렉트/HSTS 적용 제어 -->
+              <div class="form-check form-switch" title="보안 모드: HTTPS 리다이렉트/HSTS 적용">
+                <input class="form-check-input" type="checkbox" role="switch" id="toggle-security-mode" />
+                <label class="form-check-label" for="toggle-security-mode">보안 모드</label>
+              </div>
+            </li>
+            <li class="px-3 py-2">
+              <!-- DB SSL 기본 모드 선택 -->
+              <label for="select-db-ssl-mode" class="form-label mb-1">DB SSL 기본 모드</label>
+              <select id="select-db-ssl-mode" class="form-select form-select-sm">
+                <option value="disable">disable</option>
+                <option value="prefer">prefer</option>
+                <option value="require">require</option>
+                <option value="verify-ca">verify-ca</option>
+                <option value="verify-full">verify-full</option>
+              </select>
+            </li>
+            <li><hr class="dropdown-divider" /></li>
+            <li class="px-3 py-2">
+              <!-- 로그아웃 버튼 -->
+              <button id="btn-logout" class="btn btn-outline-danger btn-sm w-100" type="button">로그아웃</button>
+            </li>
+          </ul>
         </li>
       </ul>
     </div>

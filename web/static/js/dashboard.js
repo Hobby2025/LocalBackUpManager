@@ -19,6 +19,7 @@
   const elFailedLink = document.getElementById("failed-link");
   const elChartSpinner = document.getElementById("chart-spinner");
   const elThemeToggle = document.getElementById("theme-toggle");
+  const toggleSecurityMode = document.getElementById("toggle-security-mode");
   const btnGenerateReport = document.getElementById("btn-generate-report");
   const elReportResult = document.getElementById("report-result");
   const selReportHours = document.getElementById("sel-report-hours");
@@ -29,6 +30,8 @@
   const elCompLevel = document.getElementById("comp-level");
   const elCompZstd = document.getElementById("comp-zstd");
   const elCompLz4 = document.getElementById("comp-lz4");
+  // 헤더 드롭다운: DB SSL 기본 모드 선택 요소
+  const selectDbSslMode = document.getElementById("select-db-ssl-mode");
 
   let backupsChart;
   let averagesChart;
@@ -227,59 +230,76 @@
           const tbody = document.getElementById("report-list-body");
           if (!tbody) return;
           try {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">로딩중...</td></tr>';
-            const res = await fetch('/api/monitoring/reports/list');
+            tbody.innerHTML =
+              '<tr><td colspan="4" class="text-center text-muted">로딩중...</td></tr>';
+            const res = await fetch("/api/monitoring/reports/list");
             const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || '목록 조회 실패');
+            if (!res.ok) throw new Error(data.detail || "목록 조회 실패");
             const items = data.reports || [];
-            if (items.length === 0){
-              tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">데이터 없음</td></tr>';
+            if (items.length === 0) {
+              tbody.innerHTML =
+                '<tr><td colspan="4" class="text-center text-muted">데이터 없음</td></tr>';
               return;
             }
-            tbody.innerHTML = items.map(r => {
-              const size = r.size_bytes != null ? humanSize(r.size_bytes) : '-';
-              const ts = r.modified_at ? new Date(r.modified_at).toLocaleString() : '-';
-              const safeName = escapeHtml(r.filename);
-              return `<tr>
+            tbody.innerHTML = items
+              .map((r) => {
+                const size =
+                  r.size_bytes != null ? humanSize(r.size_bytes) : "-";
+                const ts = r.modified_at
+                  ? new Date(r.modified_at).toLocaleString()
+                  : "-";
+                const safeName = escapeHtml(r.filename);
+                return `<tr>
                 <td class="text-break">${safeName}</td>
                 <td>${escapeHtml(size)}</td>
                 <td>${escapeHtml(ts)}</td>
                 <td class="text-end">
-                  <a href="${r.url}" class="btn btn-sm btn-outline-primary me-1">다운로드</a>
+                  <a href="${
+                    r.url
+                  }" class="btn btn-sm btn-outline-primary me-1">다운로드</a>
                   <button type="button" class="btn btn-sm btn-outline-danger btn-delete-report" data-filename="${safeName}">삭제</button>
                 </td>
               </tr>`;
-            }).join('');
+              })
+              .join("");
           } catch (err) {
             console.error(err);
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">목록 조회 실패</td></tr>';
+            tbody.innerHTML =
+              '<tr><td colspan="4" class="text-center text-danger">목록 조회 실패</td></tr>';
           }
         }
 
         // 보고서 목록 모달 로딩
-        document.addEventListener('shown.bs.modal', async function (e) {
+        document.addEventListener("shown.bs.modal", async function (e) {
           const modal = e.target;
-          if (!modal || modal.id !== 'reportListModal') return;
+          if (!modal || modal.id !== "reportListModal") return;
           await refreshReportList();
         });
 
         // 보고서 삭제 클릭 핸들러(이벤트 위임)
-        document.addEventListener('click', async function(e){
-          const btn = e.target.closest('.btn-delete-report');
+        document.addEventListener("click", async function (e) {
+          const btn = e.target.closest(".btn-delete-report");
           if (!btn) return;
-          const filename = btn.getAttribute('data-filename');
+          const filename = btn.getAttribute("data-filename");
           if (!filename) return;
           // 간단 확인
           if (!confirm(`보고서 ${filename} 을(를) 삭제할까요?`)) return;
-          try{
-            const res = await fetch(`/api/monitoring/reports/${encodeURIComponent(filename)}`, { method: 'DELETE' });
-            const data = await res.json().catch(()=>({}));
-            if (!res.ok) throw new Error(data.detail || '삭제 실패');
+          try {
+            const res = await fetch(
+              `/api/monitoring/reports/${encodeURIComponent(filename)}`,
+              { method: "DELETE" }
+            );
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.detail || "삭제 실패");
             await refreshReportList();
-          }catch(err){
+          } catch (err) {
             console.error(err);
-            if (window.Swal){
-              Swal.fire({ icon:'error', title:'삭제 실패', text: err.message || '오류가 발생했습니다.'});
+            if (window.Swal) {
+              Swal.fire({
+                icon: "error",
+                title: "삭제 실패",
+                text: err.message || "오류가 발생했습니다.",
+              });
             }
           }
         });
@@ -571,6 +591,110 @@
     initSSE();
     setInterval(refreshAll, 10000); // 10초마다 새로고침
     setInterval(loadRealtime, 15000); // 15초마다 실시간 요약 갱신
+
+    // 보안 모드 토글 초기화
+    (async function initSecurityToggle() {
+      if (!toggleSecurityMode) return;
+      try {
+        const res = await fetch("/api/app-settings/security");
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "보안 설정 조회 실패");
+        const sec = data.security || {};
+        // 간단히 enable_https_redirect 를 토글 기준으로 사용
+        toggleSecurityMode.checked = Boolean(sec.enable_https_redirect);
+        // DB SSL 기본 모드 초기화
+        if (selectDbSslMode && typeof sec.db_ssl_mode_default === "string") {
+          selectDbSslMode.value = sec.db_ssl_mode_default;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+
+    // 보안 모드 토글 변경 -> 설정 저장(API)
+    if (toggleSecurityMode) {
+      toggleSecurityMode.addEventListener("change", async function () {
+        try {
+          const payload = {
+            security: {
+              enable_https_redirect: toggleSecurityMode.checked,
+              enable_hsts: toggleSecurityMode.checked,
+            },
+          };
+          const res = await fetch("/api/app-settings/security", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "보안 설정 저장 실패");
+          if (window.Swal) {
+            Swal.fire({
+              icon: "success",
+              title: "보안 모드",
+              text: "설정이 저장되었습니다.",
+            });
+          }
+        } catch (err) {
+          console.error(err);
+          if (window.Swal) {
+            Swal.fire({
+              icon: "error",
+              title: "보안 모드",
+              text: err.message || "저장 실패",
+            });
+          }
+        }
+      });
+    }
+
+    // DB SSL 기본 모드 변경 -> 설정 저장(API)
+    if (selectDbSslMode) {
+      selectDbSslMode.addEventListener("change", async function () {
+        try {
+          const val = selectDbSslMode.value;
+          const payload = { security: { db_ssl_mode_default: val } };
+          const res = await fetch("/api/app-settings/security", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "DB SSL 모드 저장 실패");
+          if (window.Swal) {
+            Swal.fire({
+              icon: "success",
+              title: "DB SSL 기본 모드",
+              text: `${val} 으로 저장되었습니다.`,
+            });
+          }
+        } catch (err) {
+          console.error(err);
+          if (window.Swal) {
+            Swal.fire({
+              icon: "error",
+              title: "DB SSL 기본 모드",
+              text: err.message || "저장 실패",
+            });
+          }
+        }
+      });
+    }
+
+    // 로그아웃 버튼 클릭 처리
+    const btnLogout = document.getElementById("btn-logout");
+    if (btnLogout) {
+      btnLogout.addEventListener("click", async function () {
+        try {
+          const res = await fetch("/api/auth/logout", { method: "POST" });
+          // 쿠키 삭제 후 로그인 화면으로 이동
+          window.location.href = "/login";
+        } catch (err) {
+          console.error(err);
+          window.location.href = "/login";
+        }
+      });
+    }
   });
 
   // 최근 알림 행 클릭 -> 상세 모달 열기 및 재전송 지원
