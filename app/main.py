@@ -22,7 +22,9 @@ from app.api import notifications
 from app.api import settings as settings_api
 from app.api import app_settings as app_settings_api
 from app.api import auth as auth_api
+from app.api import audit
 from app.core.database_manager import db_manager
+from app.core.audit_middleware import AuditMiddleware, AuditActionMiddleware
 
 # 로깅 설정
 logging.basicConfig(
@@ -226,6 +228,10 @@ app.add_middleware(
     allowed_hosts=_allowed_hosts if _allowed_hosts else ["*"]
 )
 
+# 감사 로깅 미들웨어 추가
+app.add_middleware(AuditMiddleware)
+app.add_middleware(AuditActionMiddleware)
+
 # 정적 파일 서빙
 # 주의: 보다 구체적인 경로(/static/reports)를 먼저 마운트해야 /static에 가려지지 않습니다.
 app.mount("/static/reports", StaticFiles(directory="data/reports", check_dir=False), name="reports")
@@ -240,6 +246,7 @@ app.include_router(monitoring.router, prefix="/api/monitoring", tags=["monitorin
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(settings_api.router, prefix="/api/notifications/settings", tags=["settings"])
 app.include_router(app_settings_api.router, prefix="/api/app-settings", tags=["app-settings"])
+app.include_router(audit.router, tags=["audit"])
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
@@ -250,6 +257,16 @@ async def dashboard(request: Request):
 async def databases_page(request: Request):
     """데이터베이스 관리 HTML 페이지 렌더링"""
     return templates.TemplateResponse("databases.html", {"request": request})
+
+@app.get("/audit", response_class=HTMLResponse)
+async def audit_page(request: Request):
+    """감사 로그 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("audit.html", {"request": request})
+
+@app.get("/security", response_class=HTMLResponse)
+async def security_page(request: Request):
+    """보안 이벤트 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("security.html", {"request": request})
 
 @app.get("/backups/{backup_id}", response_class=HTMLResponse)
 async def backup_detail_page(request: Request, backup_id: str):

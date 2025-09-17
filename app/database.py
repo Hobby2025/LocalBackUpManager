@@ -185,6 +185,100 @@ class SystemLog(Base):
     ip_address = Column(String(45))
     created_at = Column(DateTime, default=func.now())
 
+class AuditLog(Base):
+    """감사 로그 모델 - 모든 사용자 행동과 시스템 변경사항 추적"""
+    __tablename__ = "audit_logs"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, nullable=False)        # 작업을 수행한 사용자 ID
+    username = Column(String(150), nullable=False)  # 사용자명 (조회 편의성)
+    action = Column(String(100), nullable=False)    # 수행된 작업 (CREATE, UPDATE, DELETE, LOGIN, LOGOUT, BACKUP_START, etc.)
+    resource_type = Column(String(50), nullable=False)  # 대상 리소스 타입 (database, backup, user, schedule, etc.)
+    resource_id = Column(String)                    # 대상 리소스 ID
+    resource_name = Column(String(255))             # 대상 리소스 이름 (조회 편의성)
+    old_values = Column(JSONB)                      # 변경 전 값 (UPDATE 작업 시)
+    new_values = Column(JSONB)                      # 변경 후 값 (CREATE/UPDATE 작업 시)
+    ip_address = Column(String(45), nullable=False) # 클라이언트 IP 주소
+    user_agent = Column(Text)                       # 클라이언트 User-Agent
+    session_id = Column(String(100))                # 세션 ID
+    request_id = Column(String(100))                # 요청 추적 ID
+    status = Column(String(20), nullable=False)     # SUCCESS, FAILED, PARTIAL
+    error_message = Column(Text)                    # 실패 시 오류 메시지
+    duration_ms = Column(Integer)                   # 작업 수행 시간 (밀리초)
+    compliance_tags = Column(JSONB)                 # 규정 준수 관련 태그
+    created_at = Column(DateTime, default=func.now())
+
+class AccessLog(Base):
+    """접근 로그 모델 - API 엔드포인트 접근 기록"""
+    __tablename__ = "access_logs"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String)                        # 인증된 사용자 ID (익명 접근 시 NULL)
+    username = Column(String(150))                  # 사용자명
+    method = Column(String(10), nullable=False)     # HTTP 메서드 (GET, POST, PUT, DELETE)
+    endpoint = Column(String(255), nullable=False)  # 접근한 엔드포인트
+    path = Column(String(500), nullable=False)      # 전체 요청 경로
+    query_params = Column(JSONB)                    # 쿼리 파라미터
+    request_body_size = Column(Integer)             # 요청 본문 크기 (바이트)
+    response_status = Column(Integer, nullable=False) # HTTP 응답 상태 코드
+    response_size = Column(Integer)                 # 응답 크기 (바이트)
+    response_time_ms = Column(Integer)              # 응답 시간 (밀리초)
+    ip_address = Column(String(45), nullable=False) # 클라이언트 IP 주소
+    user_agent = Column(Text)                       # 클라이언트 User-Agent
+    referer = Column(String(500))                   # Referer 헤더
+    session_id = Column(String(100))                # 세션 ID
+    request_id = Column(String(100))                # 요청 추적 ID
+    is_authenticated = Column(Boolean, default=False) # 인증 여부
+    auth_method = Column(String(50))                # 인증 방법 (session, api_key, etc.)
+    risk_score = Column(Integer, default=0)         # 위험도 점수 (0-100)
+    blocked = Column(Boolean, default=False)        # 차단 여부
+    block_reason = Column(String(255))              # 차단 사유
+    created_at = Column(DateTime, default=func.now())
+
+class SecurityEvent(Base):
+    """보안 이벤트 모델 - 보안 관련 중요 이벤트 추적"""
+    __tablename__ = "security_events"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    event_type = Column(String(50), nullable=False) # LOGIN_FAILED, BRUTE_FORCE, PRIVILEGE_ESCALATION, etc.
+    severity = Column(String(20), nullable=False)   # LOW, MEDIUM, HIGH, CRITICAL
+    user_id = Column(String)                        # 관련 사용자 ID
+    username = Column(String(150))                  # 사용자명
+    ip_address = Column(String(45), nullable=False) # 클라이언트 IP 주소
+    user_agent = Column(Text)                       # 클라이언트 User-Agent
+    description = Column(Text, nullable=False)      # 이벤트 설명
+    details = Column(JSONB)                         # 상세 정보
+    source_endpoint = Column(String(255))           # 발생한 엔드포인트
+    session_id = Column(String(100))                # 세션 ID
+    request_id = Column(String(100))                # 요청 추적 ID
+    resolved = Column(Boolean, default=False)       # 해결 여부
+    resolved_by = Column(String)                    # 해결한 사용자 ID
+    resolved_at = Column(DateTime)                  # 해결 시간
+    resolution_notes = Column(Text)                 # 해결 메모
+    auto_blocked = Column(Boolean, default=False)   # 자동 차단 여부
+    created_at = Column(DateTime, default=func.now())
+
+class ComplianceReport(Base):
+    """규정 준수 리포트 모델"""
+    __tablename__ = "compliance_reports"
+    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    report_type = Column(String(50), nullable=False) # GDPR, SOX, HIPAA, PCI_DSS, etc.
+    period_start = Column(DateTime, nullable=False)  # 보고 기간 시작
+    period_end = Column(DateTime, nullable=False)    # 보고 기간 종료
+    generated_by = Column(String, nullable=False)    # 생성한 사용자 ID
+    status = Column(String(20), nullable=False)      # GENERATING, COMPLETED, FAILED
+    total_events = Column(Integer, default=0)        # 총 이벤트 수
+    compliant_events = Column(Integer, default=0)    # 준수 이벤트 수
+    non_compliant_events = Column(Integer, default=0) # 비준수 이벤트 수
+    compliance_score = Column(Float)                 # 준수 점수 (0-100)
+    findings = Column(JSONB)                         # 발견사항 목록
+    recommendations = Column(JSONB)                  # 권장사항 목록
+    file_path = Column(Text)                         # 생성된 리포트 파일 경로
+    file_size = Column(Integer)                      # 파일 크기
+    created_at = Column(DateTime, default=func.now())
+    completed_at = Column(DateTime)
+
 # -----------------------------
 # 인덱스 정의 (조회 성능 최적화)
 # -----------------------------
@@ -198,6 +292,28 @@ Index('ix_schedules_active_next_run', Schedule.is_active, Schedule.next_run)
 # SystemLog: 레벨/컴포넌트/시간대별 조회 및 JSONB GIN 인덱스
 Index('ix_system_logs_level_component_created_at', SystemLog.level, SystemLog.component, SystemLog.created_at)
 Index('ix_system_logs_details_gin', SystemLog.details, postgresql_using='gin')
+
+# AuditLog: 사용자/액션/리소스별 조회 최적화
+Index('ix_audit_logs_user_id_created_at', AuditLog.user_id, AuditLog.created_at)
+Index('ix_audit_logs_action_resource_type', AuditLog.action, AuditLog.resource_type)
+Index('ix_audit_logs_resource_id_created_at', AuditLog.resource_id, AuditLog.created_at)
+Index('ix_audit_logs_compliance_tags_gin', AuditLog.compliance_tags, postgresql_using='gin')
+
+# AccessLog: IP/엔드포인트/시간별 조회 최적화
+Index('ix_access_logs_ip_address_created_at', AccessLog.ip_address, AccessLog.created_at)
+Index('ix_access_logs_endpoint_method', AccessLog.endpoint, AccessLog.method)
+Index('ix_access_logs_user_id_created_at', AccessLog.user_id, AccessLog.created_at)
+Index('ix_access_logs_response_status_created_at', AccessLog.response_status, AccessLog.created_at)
+
+# SecurityEvent: 이벤트 타입/심각도/시간별 조회 최적화
+Index('ix_security_events_event_type_severity', SecurityEvent.event_type, SecurityEvent.severity)
+Index('ix_security_events_ip_address_created_at', SecurityEvent.ip_address, SecurityEvent.created_at)
+Index('ix_security_events_resolved_created_at', SecurityEvent.resolved, SecurityEvent.created_at)
+Index('ix_security_events_details_gin', SecurityEvent.details, postgresql_using='gin')
+
+# ComplianceReport: 리포트 타입/기간별 조회 최적화
+Index('ix_compliance_reports_type_period', ComplianceReport.report_type, ComplianceReport.period_start, ComplianceReport.period_end)
+Index('ix_compliance_reports_generated_by_created_at', ComplianceReport.generated_by, ComplianceReport.created_at)
 
 # 데이터베이스 초기화 함수
 async def init_database():
