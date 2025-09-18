@@ -420,7 +420,7 @@ class AuditActionMiddleware(BaseHTTPMiddleware):
         
         return old_values, new_values, resource_name
     
-    def _get_compliance_tags(self, action: str, resource_type: str) -> List[str]:
+    def _get_compliance_tags(self, action: str, resource_type: str) -> list[str]:
         """규정 준수 태그 생성"""
         tags = []
         

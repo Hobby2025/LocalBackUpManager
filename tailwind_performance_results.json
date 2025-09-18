@@ -1,0 +1,147 @@
+{
+  "bundle_size": {
+    "timestamp": "2025-09-18T13:13:49.342319",
+    "files": {
+      "common.css": {
+        "size_bytes": 3812,
+        "size_kb": 3.72,
+        "size_mb": 0.004
+      },
+      "tailwind-config.css": {
+        "size_bytes": 10066,
+        "size_kb": 9.83,
+        "size_mb": 0.01
+      },
+      "tailwind-input.css": {
+        "size_bytes": 8572,
+        "size_kb": 8.37,
+        "size_mb": 0.008
+      },
+      "bootstrap-5-cdn": {
+        "size_bytes": 163840,
+        "size_kb": 160.0,
+        "size_mb": 0.156
+      },
+      "tailwind-cdn": {
+        "size_bytes": 307200,
+        "size_kb": 300.0,
+        "size_mb": 0.293
+      }
+    },
+    "comparison": {
+      "current_vs_cdn": {
+        "current_kb": 173.55,
+        "tailwind_cdn_kb": 300.0,
+        "difference_kb": 126.44999999999999,
+        "percentage_change": 72.9
+      }
+    },
+    "recommendations": [
+      "⚠️  current_vs_cdn: 72.9% 증가 - PurgeCSS 설정 검토 필요"
+    ]
+  },
+  "loading_performance": {
+    "timestamp": "2025-09-18T13:13:49.355452",
+    "css_parse_time": {
+      "common.css": {
+        "size_kb": 3.72,
+        "estimated_parse_time_ms": 0.37
+      },
+      "tailwind-config.css": {
+        "size_kb": 9.83,
+        "estimated_parse_time_ms": 0.98
+      }
+    },
+    "render_time": {},
+    "recommendations": [
+      "✅ 총 CSS 파싱 시간 1.35ms - 양호한 성능"
+    ]
+  },
+  "visual_regression": {
+    "timestamp": "2025-09-18T13:13:49.356451",
+    "components_tested": [
+      {
+        "name": "dashboard-header",
+        "selector": ".tw-title",
+        "status": "needs_manual_check",
+        "notes": "수동 확인 필요: font-weight: 700, font-size: 1.25rem"
+      },
+      {
+        "name": "system-status-card",
+        "selector": ".tw-card",
+        "status": "needs_manual_check",
+        "notes": "수동 확인 필요: border-radius: 0.5rem, box-shadow"
+      },
+      {
+        "name": "action-buttons",
+        "selector": ".tw-btn",
+        "status": "needs_manual_check",
+        "notes": "수동 확인 필요: padding, border-radius: 0.375rem"
+      },
+      {
+        "name": "navigation-brand",
+        "selector": ".tw-navbar-brand",
+        "status": "needs_manual_check",
+        "notes": "수동 확인 필요: font-weight: 600, font-size: 1.125rem"
+      }
+    ],
+    "issues_found": [],
+    "recommendations": [
+      "🔍 브라우저 개발자 도구로 각 컴포넌트의 스타일 확인",
+      "📱 모바일/태블릿 반응형 레이아웃 테스트",
+      "🌙 라이트/다크 모드 전환 테스트",
+      "♿ 접근성 도구로 색상 대비 확인"
+    ]
+  },
+  "accessibility": {
+    "timestamp": "2025-09-18T13:13:49.357940",
+    "color_contrast": {
+      "primary-text": {
+        "background": "#0d6efd",
+        "foreground": "#ffffff",
+        "estimated_ratio": 4.8,
+        "min_required": 4.5,
+        "passes": true
+      },
+      "success-text": {
+        "background": "#198754",
+        "foreground": "#ffffff",
+        "estimated_ratio": 4.8,
+        "min_required": 4.5,
+        "passes": true
+      },
+      "danger-text": {
+        "background": "#dc3545",
+        "foreground": "#ffffff",
+        "estimated_ratio": 4.8,
+        "min_required": 4.5,
+        "passes": true
+      },
+      "muted-text": {
+        "background": "#ffffff",
+        "foreground": "#6c757d",
+        "estimated_ratio": 4.8,
+        "min_required": 4.5,
+        "passes": true
+      }
+    },
+    "keyboard_navigation": {
+      "Tab 키로 모든 상호작용 요소 접근 가능": "manual_check_required",
+      "Enter/Space 키로 버튼 활성화 가능": "manual_check_required",
+      "Escape 키로 모달 닫기 가능": "manual_check_required",
+      "화살표 키로 드롭다운 내비게이션 가능": "manual_check_required"
+    },
+    "screen_reader": {
+      "모든 이미지에 alt 텍스트 존재": "manual_check_required",
+      "폼 요소에 적절한 label 연결": "manual_check_required",
+      "버튼에 명확한 텍스트 또는 aria-label": "manual_check_required",
+      "페이지 구조를 나타내는 heading 태그 사용": "manual_check_required"
+    },
+    "recommendations": [
+      "🔍 axe-core 브라우저 확장 프로그램으로 자동 접근성 검사",
+      "🔊 스크린 리더(NVDA, JAWS)로 실제 사용성 테스트",
+      "⌨️  키보드만으로 전체 기능 사용 테스트",
+      "🎨 Colour Contrast Analyser로 정확한 대비 측정"
+    ]
+  }
+}

@@ -13,19 +13,29 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <!-- SweetAlert2 CDN (스위트 알람) -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <!-- 공통 UI CSS -->
     <link rel="stylesheet" href="/static/css/common.css" />
+    <!-- Tailwind 커스텀 설정 -->
+    <link rel="stylesheet" href="/static/css/tailwind-config.css" />
   </head>
   <body>
     {% set active_nav = 'dashboard' %} {% include '_partials/nav.html' %}
 
     <div class="container my-4">
-      <!-- 상단 퀵 액션: 알림 이력 / 보고서 생성 -->
+      <!-- 상단 퀵 액션: 알림 이력 / 보고서 생성 (Tailwind + Bootstrap 혼용) -->
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="m-0">대시보드</h2>
+        <h2 class="m-0 tw-title">대시보드</h2>
         <div class="d-flex flex-wrap gap-2 align-items-center">
-          <a href="/notifications" class="btn btn-outline-primary btn-sm">알림 이력</a>
-          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#reportListModal">보고서 목록</button>
+          <!-- Tailwind 버튼 시범 적용 -->
+          <a href="/notifications" class="tw-btn tw-btn-outline">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5-5-5h5v-12"></path>
+            </svg>
+            알림 이력
+          </a>
+          <button type="button" class="tw-btn tw-btn-secondary tw-btn-sm" data-bs-toggle="modal" data-bs-target="#reportListModal">보고서 목록</button>
           <div class="d-flex align-items-center gap-1">
             <select id="sel-report-hours" class="form-select form-select-sm" style="width: 110px;">
               <option value="1">1시간</option>
@@ -52,20 +62,20 @@
         </div>
       </div>
       <div id="report-result" class="small text-muted mb-3"></div>
-      <!-- 시스템 상태 카드 -->
+      <!-- 시스템 상태 카드 (Tailwind 시범 적용) -->
       <div class="row g-3">
         <div class="col-12 col-md-3">
-          <div class="card h-100">
-            <div class="card-body">
-              <h6 class="card-title">시스템 상태</h6>
-              <p class="fs-4 mb-0">
+          <div class="tw-card h-100 transition-all-200 hover:shadow-card-hover">
+            <div class="tw-card-body">
+              <h6 class="tw-card-title text-gray-700 dark:text-gray-200">시스템 상태</h6>
+              <p class="text-2xl font-semibold mb-0">
                 <span
                   id="system-status"
-                  class="badge rounded-pill text-bg-secondary"
+                  class="tw-badge tw-badge-secondary"
                   >-</span
                 >
               </p>
-              <small id="system-timestamp" class="text-muted">-</small>
+              <small id="system-timestamp" class="tw-muted">-</small>
             </div>
           </div>
         </div>

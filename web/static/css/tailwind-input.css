@@ -1,0 +1,370 @@
+/* Tailwind CSS 입력 파일 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 기존 common.css 변수 유지 (호환성) */
+:root {
+  /* 기존 색상 팔레트 */
+  --ui-primary: #0d6efd;
+  --ui-success: #198754;
+  --ui-danger: #dc3545;
+  --ui-warning: #ffc107;
+  --ui-info: #0dcaf0;
+  --ui-muted: #6c757d;
+  --ui-text: #212529;
+  --ui-bg: #ffffff;
+
+  /* 기존 폰트 크기 */
+  --ui-font-size-base: 1.0625rem;
+  --ui-font-size-sm: 0.9375rem;
+  --ui-font-size-lg: 1.125rem;
+  --ui-font-size-title: 1.25rem;
+  --ui-font-size-kpi: 1.3125rem;
+
+  /* 기존 폰트 두께 */
+  --ui-weight-base: 400;
+  --ui-weight-strong: 600;
+  --ui-weight-title: 700;
+
+  /* 기존 간격 */
+  --ui-card-padding: 1rem;
+  --ui-table-head-weight: 600;
+}
+
+/* 다크 테마 변수 */
+:root[data-bs-theme="dark"] {
+  --ui-text: #e9ecef;
+  --ui-bg: #0b0f13;
+  --ui-muted: #b8c0c7;
+}
+
+/* 웹폰트 등록 (기존 유지) */
+@font-face {
+  font-family: "Simple";
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_two@1.0/NotoSerifKR.woff")
+    format("woff");
+  font-weight: normal;
+  font-display: swap;
+}
+
+/* Base 레이어 - 기본 스타일 재정의 */
+@layer base {
+  html,
+  body {
+    @apply font-korean leading-relaxed-ko;
+    background-color: var(--ui-bg);
+    color: var(--ui-text);
+    font-size: var(--ui-font-size-base);
+  }
+
+  /* 표/코드 블록 가독성 */
+  table,
+  pre,
+  code {
+    @apply text-inherit;
+  }
+
+  /* 링크 스타일 */
+  a {
+    @apply transition-colors-200;
+  }
+
+  /* 폼 요소 기본 스타일 */
+  input,
+  select,
+  textarea {
+    @apply transition-colors-200;
+  }
+
+  /* 버튼 기본 스타일 */
+  button {
+    @apply transition-colors-200;
+  }
+}
+
+/* Components 레이어 - 재사용 가능한 컴포넌트 */
+@layer components {
+  /* 기존 유틸리티 클래스 Tailwind 버전 */
+  .ui-title {
+    @apply tw-title;
+  }
+
+  .ui-strong {
+    @apply tw-strong;
+  }
+
+  .ui-muted {
+    @apply tw-muted;
+  }
+
+  .ui-kpi {
+    @apply tw-kpi;
+  }
+
+  /* 네비게이션 컴포넌트 */
+  .tw-navbar {
+    @apply bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700;
+  }
+
+  .tw-navbar-brand {
+    @apply text-lg font-semibold text-gray-900 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400;
+  }
+
+  .tw-nav-link {
+    @apply px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400 transition-colors-200 rounded-md;
+  }
+
+  .tw-nav-link-active {
+    @apply tw-nav-link text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20;
+  }
+
+  /* 테이블 컴포넌트 */
+  .tw-table {
+    @apply w-full text-sm text-left text-gray-900 dark:text-gray-100;
+  }
+
+  .tw-table-header {
+    @apply bg-gray-50 dark:bg-gray-700;
+  }
+
+  .tw-table-header th {
+    @apply px-4 py-3 font-semibold text-gray-700 dark:text-gray-200 border-b border-gray-200 dark:border-gray-600;
+  }
+
+  .tw-table-body tr {
+    @apply border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors-200;
+  }
+
+  .tw-table-body td {
+    @apply px-4 py-3 align-middle;
+  }
+
+  /* 폼 컴포넌트 */
+  .tw-form-label {
+    @apply block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1;
+  }
+
+  .tw-form-input {
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors-200;
+  }
+
+  .tw-form-select {
+    @apply tw-form-input pr-8 bg-no-repeat bg-right cursor-pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-size: 1.5em 1.5em;
+  }
+
+  .tw-form-text {
+    @apply text-sm text-gray-500 dark:text-gray-400 mt-1;
+  }
+
+  .tw-form-error {
+    @apply text-sm text-danger-600 dark:text-danger-400 mt-1;
+  }
+
+  /* 알림/토스트 컴포넌트 */
+  .tw-alert {
+    @apply p-4 rounded-md border;
+  }
+
+  .tw-alert-success {
+    @apply tw-alert bg-success-50 border-success-200 text-success-800 dark:bg-success-900/20 dark:border-success-800 dark:text-success-200;
+  }
+
+  .tw-alert-danger {
+    @apply tw-alert bg-danger-50 border-danger-200 text-danger-800 dark:bg-danger-900/20 dark:border-danger-800 dark:text-danger-200;
+  }
+
+  .tw-alert-warning {
+    @apply tw-alert bg-warning-50 border-warning-200 text-warning-800 dark:bg-warning-900/20 dark:border-warning-800 dark:text-warning-200;
+  }
+
+  .tw-alert-info {
+    @apply tw-alert bg-info-50 border-info-200 text-info-800 dark:bg-info-900/20 dark:border-info-800 dark:text-info-200;
+  }
+
+  /* 모달 컴포넌트 (Bootstrap과 호환) */
+  .tw-modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 z-40;
+  }
+
+  .tw-modal-content {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4;
+  }
+
+  .tw-modal-header {
+    @apply px-6 py-4 border-b border-gray-200 dark:border-gray-700;
+  }
+
+  .tw-modal-title {
+    @apply text-lg font-semibold text-gray-900 dark:text-gray-100;
+  }
+
+  .tw-modal-body {
+    @apply px-6 py-4;
+  }
+
+  .tw-modal-footer {
+    @apply px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-2;
+  }
+
+  /* 드롭다운 컴포넌트 */
+  .tw-dropdown {
+    @apply relative inline-block text-left;
+  }
+
+  .tw-dropdown-menu {
+    @apply absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-50;
+  }
+
+  .tw-dropdown-item {
+    @apply block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors-200 cursor-pointer;
+  }
+
+  .tw-dropdown-divider {
+    @apply border-t border-gray-200 dark:border-gray-600 my-1;
+  }
+
+  /* 로딩 스피너 */
+  .tw-spinner {
+    @apply inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin;
+  }
+
+  /* 툴팁 */
+  .tw-tooltip {
+    @apply absolute z-50 px-2 py-1 text-xs text-white bg-gray-900 rounded shadow-lg pointer-events-none;
+  }
+
+  /* 진행률 바 */
+  .tw-progress {
+    @apply w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2;
+  }
+
+  .tw-progress-bar {
+    @apply h-2 rounded-full transition-all-200;
+  }
+
+  .tw-progress-bar-success {
+    @apply tw-progress-bar bg-success-500;
+  }
+
+  .tw-progress-bar-danger {
+    @apply tw-progress-bar bg-danger-500;
+  }
+
+  .tw-progress-bar-warning {
+    @apply tw-progress-bar bg-warning-500;
+  }
+
+  .tw-progress-bar-info {
+    @apply tw-progress-bar bg-info-500;
+  }
+}
+
+/* Utilities 레이어 - 유틸리티 클래스 */
+@layer utilities {
+  /* 애니메이션 유틸리티 */
+  .animate-fade-in {
+    @apply animate-fade-in;
+  }
+
+  .animate-slide-up {
+    @apply animate-slide-up;
+  }
+
+  .animate-slide-down {
+    @apply animate-slide-down;
+  }
+
+  .animate-scale-in {
+    @apply animate-scale-in;
+  }
+
+  /* 상태 유틸리티 */
+  .is-loading {
+    @apply opacity-50 pointer-events-none;
+  }
+
+  .is-disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  .is-hidden {
+    @apply hidden;
+  }
+
+  .is-visible {
+    @apply block;
+  }
+
+  /* 반응형 텍스트 크기 */
+  .text-responsive-sm {
+    @apply text-sm md:text-base;
+  }
+
+  .text-responsive-base {
+    @apply text-base md:text-lg;
+  }
+
+  .text-responsive-lg {
+    @apply text-lg md:text-xl;
+  }
+
+  /* 그리드 유틸리티 (Bootstrap 호환) */
+  .grid-cols-auto {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+
+  /* 스크롤 유틸리티 */
+  .scroll-smooth {
+    scroll-behavior: smooth;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 포커스 유틸리티 */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  }
+
+  .focus-ring-inset {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset;
+  }
+
+  /* 텍스트 선택 유틸리티 */
+  .select-none {
+    user-select: none;
+  }
+
+  .select-text {
+    user-select: text;
+  }
+
+  .select-all {
+    user-select: all;
+  }
+
+  /* 인쇄 유틸리티 */
+  @media print {
+    .print-hidden {
+      @apply hidden;
+    }
+
+    .print-visible {
+      @apply block;
+    }
+  }
+}

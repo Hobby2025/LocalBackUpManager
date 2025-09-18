@@ -546,17 +546,17 @@
 
 결정 사항:
 
-- [ ] 도입 방식 결정 (CDN 시범 vs 빌드 기반 PostCSS + Purge)
-- [ ] 디자인 토큰 전략 (Tailwind theme 확장 vs common.css 병행)
+- [x] 도입 방식 결정 (CDN 시범 vs 빌드 기반 PostCSS + Purge)
+- [x] 디자인 토큰 전략 (Tailwind theme 확장 vs common.css 병행)
 
 작업 내용:
 
-- [ ] 템플릿에 CDN 스크립트 추가 또는 빌드 파이프라인 구성(tailwind.config.js, postcss.config.js)
-- [ ] 공통 스타일 이관: 색상/폰트/간격/볼드 → Tailwind theme로 정의
-- [ ] 시범 전환 컴포넌트(헤더/카드/버튼) 3종 적용
-- [ ] Purge(콘텐츠 스캔) 설정으로 미사용 CSS 제거(빌드 방식 선택 시)
-- [ ] 성능/번들 크기 검증 및 회귀 테스트
-- [ ] Bootstrap 의존 구간 목록화 및 점진 축소 계획 수립
+- [x] 템플릿에 CDN 스크립트 추가 또는 빌드 파이프라인 구성(tailwind.config.js, postcss.config.js)
+- [x] 공통 스타일 이관: 색상/폰트/간격/볼드 → Tailwind theme로 정의
+- [x] 시범 전환 컴포넌트(헤더/카드/버튼) 3종 적용
+- [x] Purge(콘텐츠 스캔) 설정으로 미사용 CSS 제거(빌드 방식 선택 시)
+- [x] 성능/번들 크기 검증 및 회귀 테스트
+- [x] Bootstrap 의존 구간 목록화 및 점진 축소 계획 수립
 
 ## 🔄 이슈 관리 워크플로우
 
