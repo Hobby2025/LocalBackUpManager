@@ -1,0 +1,157 @@
+# Blue 환경 배포 매니페스트
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backup-manager-app-blue
+  namespace: production
+  labels:
+    app: backup-manager
+    version: blue
+    environment: production
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: backup-manager
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: backup-manager
+        version: blue
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: backup-manager-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: backup-manager
+        image: ghcr.io/your-org/backup-manager:IMAGE_TAG
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: DEBUG
+          value: "false"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: backup-manager-secrets
+              key: database-url
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: backup-manager-secrets
+              key: encryption-key
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: backup-manager-secrets
+              key: redis-url
+        - name: SMTP_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: backup-manager-config
+              key: smtp-host
+        - name: SMTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: backup-manager-config
+              key: smtp-port
+        - name: SMTP_USER
+          valueFrom:
+            secretKeyRef:
+              name: backup-manager-secrets
+              key: smtp-user
+        - name: SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: backup-manager-secrets
+              key: smtp-password
+        - name: SLACK_WEBHOOK_URL
+          valueFrom:
+            secretKeyRef:
+              name: backup-manager-secrets
+              key: slack-webhook-url
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: backup-storage
+          mountPath: /app/data/backups
+        - name: log-storage
+          mountPath: /app/data/logs
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: temp-storage
+          mountPath: /app/data/temp
+      volumes:
+      - name: backup-storage
+        persistentVolumeClaim:
+          claimName: backup-storage-pvc
+      - name: log-storage
+        persistentVolumeClaim:
+          claimName: log-storage-pvc
+      - name: config-volume
+        configMap:
+          name: backup-manager-config
+      - name: temp-storage
+        emptyDir:
+          sizeLimit: 1Gi
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: "backup-manager"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - backup-manager
+              topologyKey: kubernetes.io/hostname

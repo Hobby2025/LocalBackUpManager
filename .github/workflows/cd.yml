@@ -1,0 +1,317 @@
+# CI/CD 파이프라인 - 지속적 배포
+name: CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types:
+      - completed
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # 빌드 및 푸시
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      packages: write
+    
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+    
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+    
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+        format: spdx-json
+        output-file: sbom.spdx.json
+    
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v3
+      with:
+        name: sbom
+        path: sbom.spdx.json
+
+  # 보안 스캔
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ needs.build-and-push.outputs.image-tag }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # 스테이징 배포
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-and-push, security-scan]
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+    
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+    
+    - name: Deploy to staging
+      env:
+        IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+      run: |
+        # Kubernetes 매니페스트 업데이트
+        sed -i "s|IMAGE_TAG|$IMAGE_TAG|g" k8s/staging/*.yaml
+        
+        # 배포 실행
+        kubectl apply -f k8s/staging/ --kubeconfig=kubeconfig
+        
+        # 배포 상태 확인
+        kubectl rollout status deployment/backup-manager-app -n staging --kubeconfig=kubeconfig
+    
+    - name: Run smoke tests
+      run: |
+        # 스테이징 환경 헬스체크
+        curl -f https://staging.backup-manager.example.com/api/health
+        
+        # 기본 기능 테스트
+        pytest tests/smoke/ -v --base-url=https://staging.backup-manager.example.com
+
+  # 프로덕션 배포
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy-staging]
+    environment: production
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+    
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+    
+    - name: Blue-Green Deployment
+      env:
+        IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+      run: |
+        # 현재 활성 환경 확인
+        CURRENT_ENV=$(kubectl get service backup-manager-service -o jsonpath='{.spec.selector.version}' --kubeconfig=kubeconfig)
+        
+        if [ "$CURRENT_ENV" = "blue" ]; then
+          NEW_ENV="green"
+        else
+          NEW_ENV="blue"
+        fi
+        
+        echo "Deploying to $NEW_ENV environment"
+        
+        # 새 환경에 배포
+        sed -i "s|IMAGE_TAG|$IMAGE_TAG|g" k8s/production/$NEW_ENV/*.yaml
+        sed -i "s|VERSION_LABEL|$NEW_ENV|g" k8s/production/$NEW_ENV/*.yaml
+        
+        kubectl apply -f k8s/production/$NEW_ENV/ --kubeconfig=kubeconfig
+        
+        # 배포 완료 대기
+        kubectl rollout status deployment/backup-manager-app-$NEW_ENV -n production --kubeconfig=kubeconfig
+        
+        # 헬스체크
+        kubectl wait --for=condition=ready pod -l app=backup-manager,version=$NEW_ENV -n production --timeout=300s --kubeconfig=kubeconfig
+    
+    - name: Switch traffic
+      run: |
+        # 트래픽 전환
+        kubectl patch service backup-manager-service -p '{"spec":{"selector":{"version":"'$NEW_ENV'"}}}' --kubeconfig=kubeconfig
+        
+        # 전환 확인
+        sleep 30
+        curl -f https://backup-manager.example.com/api/health
+    
+    - name: Cleanup old environment
+      run: |
+        # 이전 환경 정리 (5분 후)
+        sleep 300
+        
+        if [ "$NEW_ENV" = "blue" ]; then
+          OLD_ENV="green"
+        else
+          OLD_ENV="blue"
+        fi
+        
+        kubectl delete deployment backup-manager-app-$OLD_ENV -n production --kubeconfig=kubeconfig || true
+
+  # 배포 알림
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    
+    steps:
+    - name: Notify Slack
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+        custom_payload: |
+          {
+            "text": "Deployment Status",
+            "attachments": [{
+              "color": "${{ job.status }}" === "success" ? "good" : "danger",
+              "fields": [{
+                "title": "Repository",
+                "value": "${{ github.repository }}",
+                "short": true
+              }, {
+                "title": "Branch/Tag",
+                "value": "${{ github.ref }}",
+                "short": true
+              }, {
+                "title": "Staging",
+                "value": "${{ needs.deploy-staging.result }}",
+                "short": true
+              }, {
+                "title": "Production",
+                "value": "${{ needs.deploy-production.result }}",
+                "short": true
+              }]
+            }]
+          }
+    
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v') && needs.deploy-production.result == 'success'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## 🚀 Release Notes
+          
+          ### Changes
+          - Automated release from CI/CD pipeline
+          - Docker image: ${{ needs.build-and-push.outputs.image-tag }}
+          - Image digest: ${{ needs.build-and-push.outputs.image-digest }}
+          
+          ### Deployment Status
+          - ✅ Staging: Deployed successfully
+          - ✅ Production: Deployed successfully
+          
+          ### Security
+          - 🔒 Security scan completed
+          - 📋 SBOM generated and attached
+          
+          For detailed changes, see the [commit history](https://github.com/${{ github.repository }}/commits/${{ github.ref }}).
+        draft: false
+        prerelease: false
+
+  # 롤백 워크플로우 (수동 트리거)
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+    
+    - name: Configure kubectl
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+        export KUBECONFIG=kubeconfig
+    
+    - name: Rollback deployment
+      run: |
+        kubectl rollout undo deployment/backup-manager-app -n production --kubeconfig=kubeconfig
+        kubectl rollout status deployment/backup-manager-app -n production --kubeconfig=kubeconfig
+    
+    - name: Verify rollback
+      run: |
+        sleep 30
+        curl -f https://backup-manager.example.com/api/health

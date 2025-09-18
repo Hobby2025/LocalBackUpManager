@@ -1,0 +1,67 @@
+# 서비스 매니페스트
+apiVersion: v1
+kind: Service
+metadata:
+  name: backup-manager-service
+  namespace: production
+  labels:
+    app: backup-manager
+    environment: production
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 8000
+    protocol: TCP
+    name: https
+  selector:
+    app: backup-manager
+    version: blue  # Blue-Green 배포를 위해 동적으로 변경됨
+
+---
+# 내부 서비스 (클러스터 내부 통신용)
+apiVersion: v1
+kind: Service
+metadata:
+  name: backup-manager-internal
+  namespace: production
+  labels:
+    app: backup-manager
+    environment: production
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: backup-manager
+
+---
+# 헤드리스 서비스 (StatefulSet용)
+apiVersion: v1
+kind: Service
+metadata:
+  name: backup-manager-headless
+  namespace: production
+  labels:
+    app: backup-manager
+    environment: production
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: backup-manager
