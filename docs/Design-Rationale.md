@@ -113,3 +113,9 @@
 - `DatabaseAdapter` 추상 인터페이스를 정의하고 PostgreSQL(psycopg2), MySQL(PyMySQL), SQLite(sqlite3) 각각에 최적화된 어댑터를 구현하여 DB별 연결 풀 전략을 차별화했습니다.
 - 기존 `DatabaseManager`를 어댑터 패턴 기반으로 리팩토링하여 `db_type` 파라미터로 동적 어댑터 선택이 가능하도록 하고, 연결 풀 관리 API(`init-pool`, `close-pool`, `pool-status`)를 추가했습니다.
 - PostgreSQL은 SimpleConnectionPool, MySQL은 커스텀 풀, SQLite는 즉시 연결 방식으로 각 DB의 특성에 맞는 최적화된 연결 관리를 구현하여 확장성과 성능을 동시에 확보했습니다.
+
+## 8.3 BackupEngine 백업 전략 어댑터 (다중 DB 백업 지원)
+
+- `BackupAdapter` 추상 인터페이스를 정의하고 PostgreSQL(pg_dump), MySQL(mysqldump), SQLite(backup API/파일복사/dump) 각각에 최적화된 백업 전략을 구현하여 DB별 특성을 반영한 백업 옵션을 제공했습니다.
+- 공통 후처리 모듈(`BackupPostProcessor`)을 분리하여 압축(gzip/lz4/zstd), 암호화(AES-256-GCM), 체크섬(SHA-256) 기능을 재사용 가능하도록 구현하고, 통합 파이프라인으로 일관된 후처리를 보장했습니다.
+- 기존 `BackupEngine`을 어댑터 패턴 기반으로 리팩토링(`BackupEngineV2`)하여 DB 타입별 동적 어댑터 선택과 공통 후처리 적용이 가능하도록 하고, 메타데이터 통합 관리로 운영 편의성을 향상시켰습니다.

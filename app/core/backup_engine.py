@@ -1,8 +1,8 @@
 """
-pg_dump 기반 기본 백업 엔진
-- 데이터베이스 덤프 실행
-- 압축(gzip) 지원
-- 체크섬(SHA-256) 계산 및 메타데이터 갱신
+다중 DB 백업 엔진 (어댑터 패턴 기반)
+- PostgreSQL, MySQL, SQLite 지원
+- 어댑터 패턴으로 DB별 최적화된 백업 전략
+- 공통 후처리 (압축/암호화/체크섬) 지원
 
 주의:
 - 변수명은 변경하지 않음
@@ -30,6 +30,8 @@ from app.database import (
 )
 from app.database import Notification
 from app.core.notification_service import NotificationService
+from app.core.backup_adapters import create_backup_adapter
+from app.core.backup_postprocessor import backup_postprocessor
 
 # 암호화에 필요한 모듈 (requirements.txt의 cryptography 사용)
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -805,9 +807,10 @@ class BackupEngine:
         return None
 
     def run_backup(self, database_id: str, backup_id: str) -> None:
-        """백업 실행 메인 함수
+        """백업 실행 메인 함수 (어댑터 패턴 기반)
         - 새로운 DB 세션을 생성하여 메타데이터 갱신
         - 상태: pending -> running -> completed/failed
+        - DB 타입별 최적화된 백업 전략 적용
         """
         db_session = SessionLocal()
         try:
@@ -821,76 +824,38 @@ class BackupEngine:
             backup.started_at = datetime.utcnow()
             db_session.commit()
 
-            # 출력 파일 경로/이름 생성: backups/<db_name>/<timestamp>_<backup_id>.sql
+            # 출력 파일 경로/이름 생성: backups/<db_name>/<timestamp>_<backup_id>.<ext>
             ts = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
             db_dir = Path(settings.BACKUP_BASE_PATH) / target_db.database_name
             db_dir.mkdir(parents=True, exist_ok=True)
-            sql_path = db_dir / f"{ts}_{backup_id}.sql"
+            
+            # DB 타입별 파일 확장자 결정
+            file_ext = self._get_backup_file_extension(target_db.db_type)
+            backup_path = db_dir / f"{ts}_{backup_id}.{file_ext}"
 
             # TODO: password_encrypted 복호화 로직 적용 (현재는 평문으로 가정)
             password = target_db.password_encrypted
 
-            # 덤프 실행
-            self._run_pg_dump(target_db, sql_path, password)
+            # 어댑터 기반 백업 실행
+            success, error_msg, backup_metadata = self._run_backup_with_adapter(
+                target_db, backup_path, password
+            )
+            
+            if not success:
+                raise RuntimeError(f"백업 실행 실패: {error_msg}")
 
-            # 압축 적용(gzip/zstd/lz4)
-            comp_algo, comp_level = self._get_compression_settings()
-            original_size = sql_path.stat().st_size if sql_path.exists() else 0
-            compressed_path: Optional[Path] = self._compress_file(sql_path, comp_algo, comp_level)
-            # 원본 SQL 삭제
-            try:
-                if sql_path.exists():
-                    sql_path.unlink()
-            except Exception:
-                pass
+            # 후처리 (압축/암호화/체크섬) 적용
+            final_path, postprocess_metadata = self._apply_postprocessing(
+                backup_path, db_dir
+            )
 
-            # 파일 메타데이터 계산
-            final_path = compressed_path or sql_path
-
-            # 암호화 설정이 활성화된 경우 AES-256-GCM으로 암호화 (.enc)
-            encrypted = False
-            if settings.DEFAULT_ENCRYPTION:
-                enc_path = Path(str(final_path) + '.enc')
-                # 활성 암호화 키 조회 (settings.yaml의 security.encryption)
-                key_str = self._get_active_encryption_key()
-                if not key_str:
-                    raise ValueError("활성 암호화 키가 설정되어 있지 않습니다(security.encryption).")
-                self._aes_gcm_encrypt_file(final_path, enc_path, key_str)
-                # 평문 파일 삭제
-                try:
-                    final_path.unlink(missing_ok=True)
-                except TypeError:
-                    if final_path.exists():
-                        final_path.unlink()
-                final_path = enc_path
-                encrypted = True
-
-            file_size = final_path.stat().st_size
-            checksum = self._sha256(final_path)
-
-            # 메타데이터 갱신
-            backup.file_path = str(final_path)
-            backup.file_size = file_size
-            backup.is_encrypted = encrypted
-            backup.status = 'completed'
-            backup.completed_at = datetime.utcnow()
-            if backup.started_at and backup.completed_at:
-                backup.duration_seconds = int((backup.completed_at - backup.started_at).total_seconds())
-            backup.checksum = checksum
-
-            # 추가 메타데이터: 압축 크기/압축비, pg_dump 버전
-            if compressed_path and original_size:
-                backup.compressed_size = file_size
-                try:
-                    ratio = round((file_size / original_size) * 100, 2)
-                    backup.compression_ratio = ratio
-                except Exception:
-                    pass
-            # pg_dump 버전 기록
-            ver = self._pg_dump_version()
-            if ver:
-                backup.pg_dump_version = ver
+            # 메타데이터 통합 및 갱신
+            self._update_backup_metadata(
+                backup, target_db, final_path, backup_metadata, postprocess_metadata
+            )
+            
             db_session.commit()
+            
             # 성공/경고 알림 훅
             try:
                 self._notify_on_success_or_warn(db_session, target_db.id, backup)

@@ -486,7 +486,7 @@
 - [x] PostgresAdapter 구현(기존 psycopg2 기반 이식)
 - [x] MySQLAdapter 구현(PyMySQL 기반, 풀 전략 결정)
 - [x] SQLiteAdapter 구현(sqlite3, 풀 불필요 처리)
-- [x] /api/databases/* 엔드포인트가 어댑터 기반으로 동작하도록 변경
+- [x] /api/databases/\* 엔드포인트가 어댑터 기반으로 동작하도록 변경
 ```
 
 #### 8.3 BackupEngine 백업 전략 어댑터
@@ -498,11 +498,11 @@
 
 작업 내용:
 
-- [ ] BackupAdapter 인터페이스 정의(run_backup, 옵션 구성)
-- [ ] PostgresBackupAdapter(pg_dump) 유지/정리
-- [ ] MySQLBackupAdapter(mysqldump, 인증/옵션/에러 처리)
-- [ ] SQLiteBackupAdapter(일관성 있는 파일 스냅샷/backup API)
-- [ ] 공통 후처리 재사용(압축/암호화/체크섬/메타데이터)
+- [x] BackupAdapter 인터페이스 정의(run_backup, 옵션 구성)
+- [x] PostgresBackupAdapter(pg_dump) 유지/정리
+- [x] MySQLBackupAdapter(mysqldump, 인증/옵션/에러 처리)
+- [x] SQLiteBackupAdapter(일관성 있는 파일 스냅샷/backup API)
+- [x] 공통 후처리 재사용(압축/암호화/체크섬/메타데이터)
 ```
 
 #### 8.4 설정·문서·배포 업데이트
