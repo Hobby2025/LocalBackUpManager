@@ -50,6 +50,16 @@
   // 파일 선택기 요소들
   const btnBrowseFile = document.getElementById("btn-browse-file");
   const filePicker = document.getElementById("file-picker");
+  
+  // 연결 테스트 요소들
+  const btnTestConnection = document.getElementById("btn-test-connection");
+  const testSpinner = document.getElementById("test-spinner");
+  const connectionTestResult = document.getElementById("connection-test-result");
+  const testResultAlert = document.getElementById("test-result-alert");
+  const testResultIcon = document.getElementById("test-result-icon");
+  const testResultTitle = document.getElementById("test-result-title");
+  const testResultMessage = document.getElementById("test-result-message");
+  const testResultDetails = document.getElementById("test-result-details");
 
   // 필터 요소
   const fltQ = document.getElementById("flt-q");
@@ -421,6 +431,144 @@
     return { isValid: true };
   }
 
+  // 연결 테스트 기능
+  async function testDatabaseConnection() {
+    const dbType = formDbType.value;
+    if (!dbType) {
+      showTestResult('error', '연결 테스트 실패', 'DB 타입을 먼저 선택해주세요.', '');
+      return;
+    }
+
+    // 테스트용 페이로드 생성
+    const testPayload = {
+      db_type: dbType,
+      host: formHost.value.trim(),
+      port: Number(formPort.value) || 0,
+      database_name: formDatabaseName.value.trim(),
+      username: formUsername.value.trim(),
+      password: formPassword.value.trim(),
+      ssl_mode: formSslMode.value.trim()
+    };
+
+    // 기본 유효성 검사
+    const validationResult = validateFormByDbType(testPayload);
+    if (!validationResult.isValid) {
+      showTestResult('error', '연결 테스트 실패', validationResult.message, '필수 필드를 모두 입력한 후 테스트해주세요.');
+      return;
+    }
+
+    // 테스트 시작
+    setTestingState(true);
+    const startTime = Date.now();
+
+    try {
+      // 기존 DB 수정 시에는 ID를 포함하여 테스트
+      const testUrl = formId.value ? 
+        `/api/databases/${formId.value}/test-connection` : 
+        '/api/databases/test-connection-temp';
+
+      const response = await fetch(testUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testPayload)
+      });
+
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
+
+      if (response.ok) {
+        const result = await response.json();
+        showTestResult(
+          'success', 
+          '연결 테스트 성공', 
+          `${dbType.toUpperCase()} 데이터베이스에 성공적으로 연결되었습니다.`,
+          `응답 시간: ${responseTime}ms | 서버: ${testPayload.host}:${testPayload.port}`
+        );
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.detail || errorData.message || `HTTP ${response.status} 오류`;
+        showTestResult(
+          'error',
+          '연결 테스트 실패',
+          errorMessage,
+          `응답 시간: ${responseTime}ms | 상태 코드: ${response.status}`
+        );
+      }
+    } catch (error) {
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
+      
+      let errorMessage = '연결 테스트 중 오류가 발생했습니다.';
+      let errorDetails = `응답 시간: ${responseTime}ms`;
+
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        errorMessage = '서버에 연결할 수 없습니다.';
+        errorDetails += ' | 네트워크 오류 또는 서버 다운';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      showTestResult('error', '연결 테스트 실패', errorMessage, errorDetails);
+    } finally {
+      setTestingState(false);
+    }
+  }
+
+  // 테스트 상태 UI 업데이트
+  function setTestingState(isTesting) {
+    if (btnTestConnection && testSpinner) {
+      btnTestConnection.disabled = isTesting;
+      testSpinner.style.display = isTesting ? 'inline-block' : 'none';
+      
+      if (isTesting) {
+        btnTestConnection.innerHTML = `
+          <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          테스트 중...
+        `;
+        // 이전 결과 숨기기
+        if (connectionTestResult) {
+          connectionTestResult.style.display = 'none';
+        }
+      } else {
+        btnTestConnection.innerHTML = '🔗 연결 테스트';
+      }
+    }
+  }
+
+  // 테스트 결과 표시
+  function showTestResult(type, title, message, details) {
+    if (!connectionTestResult || !testResultAlert) return;
+
+    // 결과 영역 표시
+    connectionTestResult.style.display = 'block';
+
+    // 알림 스타일 설정
+    testResultAlert.className = `alert alert-${type === 'success' ? 'success' : 'danger'}`;
+
+    // 아이콘 설정
+    if (testResultIcon) {
+      testResultIcon.innerHTML = type === 'success' ? '✅' : '❌';
+    }
+
+    // 내용 설정
+    if (testResultTitle) {
+      testResultTitle.textContent = title;
+    }
+    if (testResultMessage) {
+      testResultMessage.textContent = message;
+    }
+    if (testResultDetails) {
+      testResultDetails.textContent = details;
+    }
+
+    // 성공 시 토스트도 표시
+    if (type === 'success') {
+      swToast('데이터베이스 연결 테스트 성공!', 'success');
+    }
+  }
+
   // 목록 로드
   async function loadList() {
     try {
@@ -582,6 +730,15 @@
       
       // DB 타입에 따른 UI 업데이트
       handleDbTypeChange();
+      
+      // 연결 테스트 결과 숨기기
+      if (connectionTestResult) {
+        connectionTestResult.style.display = 'none';
+      }
+      
+      // 연결 테스트 버튼 상태 리셋
+      setTestingState(false);
+      
       document.getElementById("dbModalTitle").textContent = "Edit Database";
       modal && modal.show();
     } catch (e) {
@@ -758,6 +915,9 @@
     }
   });
   
+  // 연결 테스트 버튼 이벤트 리스너
+  btnTestConnection && btnTestConnection.addEventListener("click", testDatabaseConnection);
+  
   btnRefresh &&
     btnRefresh.addEventListener("click", () => {
       state.page = 1;
@@ -813,6 +973,14 @@
     
     // 기본 UI 상태로 리셋
     configureDefaultUI();
+    
+    // 연결 테스트 결과 숨기기
+    if (connectionTestResult) {
+      connectionTestResult.style.display = 'none';
+    }
+    
+    // 연결 테스트 버튼 상태 리셋
+    setTestingState(false);
     
     document.getElementById("dbModalTitle").textContent = "새 데이터베이스 추가";
   }
