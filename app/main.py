@@ -253,10 +253,15 @@ async def dashboard(request: Request):
     """대시보드 HTML 페이지 렌더링"""
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
-@app.get("/databases", response_class=HTMLResponse)
-async def databases_page(request: Request):
-    """데이터베이스 관리 HTML 페이지 렌더링"""
-    return templates.TemplateResponse("databases.html", {"request": request})
+@app.get("/database-wizard", response_class=HTMLResponse)
+async def database_wizard_page(request: Request):
+    """스마트 DB 설정 마법사 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("database_wizard.html", {"request": request})
+
+@app.get("/database-templates", response_class=HTMLResponse)
+async def database_templates_page(request: Request):
+    """데이터베이스 템플릿 관리 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("database_templates.html", {"request": request})
 
 @app.get("/audit", response_class=HTMLResponse)
 async def audit_page(request: Request):

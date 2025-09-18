@@ -35,6 +35,10 @@
   const btnSave = document.getElementById("btn-save");
   const hostHelp = document.getElementById("host-help");
   
+  // 템플릿 관련 변수
+  let availableTemplates = [];
+  let selectedTemplate = null;
+  
   // 도움말 및 필수 표시 요소들
   const portHelp = document.getElementById("port-help");
   const portRequired = document.getElementById("port-required");
@@ -94,52 +98,14 @@
     total: 0,
   };
 
-  // 유틸: HTML 이스케이프
-  function escapeHtml(str) {
-    if (str == null) return "";
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
+  // 유틸: HTML 이스케이프 (DatabaseUtils 모듈 사용)
+  const escapeHtml = window.DatabaseUtils.escapeHtml;
 
-  // 유틸: SweetAlert2 토스트
-  function swToast(message, icon = "success") {
-    if (window.Swal) {
-      const t = window.Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 2500,
-        timerProgressBar: true,
-      });
-      t.fire({ icon: icon, title: message });
-    } else {
-      alert(message);
-    }
-  }
+  // 유틸: SweetAlert2 토스트 (DatabaseUtils 모듈 사용)
+  const swToast = window.DatabaseUtils.showToast;
 
-  // 유틸: SweetAlert2 확인
-  function swConfirm(message) {
-    return new Promise((resolve) => {
-      if (window.Swal) {
-        window.Swal.fire({
-          title: message,
-          icon: 'question',
-          showCancelButton: true,
-          confirmButtonText: '확인',
-          cancelButtonText: '취소',
-        }).then((result) => {
-          resolve(result.isConfirmed);
-        });
-      } else {
-        const ok = confirm(message);
-        resolve(ok);
-      }
-    });
-  }
+  // 유틸: SweetAlert2 확인 (DatabaseUtils 모듈 사용)
+  const swConfirm = window.DatabaseUtils.showConfirm;
 
   // DB 타입 변경 시 포트 자동 설정 및 UI 업데이트
   function handleDbTypeChange() {
@@ -472,41 +438,13 @@
     }
   }
 
-  // 배지(상태/환경/우선순위) 일원화
-  function statusBadge(status) {
-    const s = (status || "").toLowerCase();
-    const cls =
-      s === "connected" ? "success" : s === "error" ? "danger" : "secondary";
-    return `<span class="badge text-bg-${cls}">${escapeHtml(
-      status || "알 수 없음"
-    )}</span>`;
-  }
-  function envBadge(env) {
-    const map = {
-      production: "danger",
-      staging: "warning",
-      development: "info",
-    };
-    const cls = map[(env || "").toLowerCase()] || "secondary";
-    return `<span class="badge text-bg-${cls}">${escapeHtml(
-      env || "-"
-    )}</span>`;
-  }
-  function priorityBadge(p) {
-    const map = { high: "danger", medium: "primary", low: "secondary" };
-    const cls = map[(p || "").toLowerCase()] || "secondary";
-    return `<span class="badge text-bg-${cls}">${escapeHtml(p || "-")}</span>`;
-  }
+  // 배지(상태/환경/우선순위) 일원화 (DatabaseUtils 모듈 사용)
+  const statusBadge = window.DatabaseUtils.getStatusBadge;
+  const envBadge = window.DatabaseUtils.getEnvironmentBadge;
+  const priorityBadge = window.DatabaseUtils.getPriorityBadge;
   
-  function dbTypeBadge(dbType) {
-    const typeMap = {
-      postgresql: { icon: "🐘", color: "primary", name: "PostgreSQL" },
-      mysql: { icon: "🐬", color: "info", name: "MySQL" },
-      sqlite: { icon: "📄", color: "secondary", name: "SQLite" }
-    };
-    const type = typeMap[(dbType || "").toLowerCase()] || { icon: "❓", color: "secondary", name: dbType || "Unknown" };
-    return `<span class="badge text-bg-${type.color}">${type.icon} ${type.name}</span>`;
-  }
+  // DB 타입 배지 (DatabaseUtils 모듈 사용)
+  const dbTypeBadge = window.DatabaseUtils.getDbTypeBadge;
 
   function rowTemplate(it) {
     return `
@@ -947,7 +885,7 @@
       connectionTestResult.style.display = 'none';
     }
     
-    // 연결 테스트 버튼 상태 리셋
+      // 연결 테스트 버튼 상태 리셋
     setTestingState(false);
     
     // 암호화 UI 리셋
@@ -960,5 +898,260 @@
   const btnAddDb = document.querySelector('[data-bs-target="#dbModal"]');
   btnAddDb && btnAddDb.addEventListener("click", resetModal);
 
-  document.addEventListener("DOMContentLoaded", loadList);
+  // 템플릿 관련 함수들
+  
+  // 템플릿 목록 로드
+  async function loadTemplates() {
+    try {
+      // 임시 템플릿 데이터 (실제로는 API에서 가져옴)
+      availableTemplates = [
+        {
+          id: '1',
+          name: 'PostgreSQL 프로덕션',
+          description: '프로덕션 환경용 PostgreSQL 설정',
+          db_type: 'postgresql',
+          environment: 'production',
+          is_default: true,
+          config: {
+            port: 5432,
+            ssl_mode: 'require',
+            backup_schedule: 'daily',
+            compression: 'gzip'
+          }
+        },
+        {
+          id: '2',
+          name: 'MySQL 개발환경',
+          description: '개발 환경용 MySQL 설정',
+          db_type: 'mysql',
+          environment: 'development',
+          is_default: false,
+          config: {
+            port: 3306,
+            ssl_mode: 'prefer',
+            backup_schedule: 'weekly',
+            compression: 'lz4'
+          }
+        }
+      ];
+    } catch (error) {
+      console.error('템플릿 로드 오류:', error);
+    }
+  }
+
+  // URL에서 템플릿 파라미터 확인
+  function checkUrlTemplate() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const templateId = urlParams.get('template');
+    
+    if (templateId) {
+      // 템플릿 자동 적용
+      applyTemplateById(templateId);
+      // URL에서 파라미터 제거
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }
+
+  // 템플릿 적용 버튼 이벤트
+  const btnApplyTemplate = document.getElementById('btn-apply-template');
+  btnApplyTemplate && btnApplyTemplate.addEventListener('click', showTemplateSelectModal);
+
+  // 템플릿 선택 모달 표시
+  function showTemplateSelectModal() {
+    const modal = new bootstrap.Modal(document.getElementById('templateSelectModal'));
+    renderTemplateSelectList();
+    modal.show();
+  }
+
+  // 템플릿 선택 목록 렌더링
+  function renderTemplateSelectList() {
+    const container = document.getElementById('template-select-list');
+    if (!container) return;
+
+    if (availableTemplates.length === 0) {
+      container.innerHTML = `
+        <div class="col-12 text-center py-4">
+          <div class="text-muted mb-3" style="font-size: 2rem;">📋</div>
+          <h6 class="text-muted">사용 가능한 템플릿이 없습니다</h6>
+          <p class="text-muted small">템플릿을 먼저 생성해주세요.</p>
+          <a href="/database-templates" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus me-1"></i>템플릿 만들기
+          </a>
+        </div>
+      `;
+      return;
+    }
+
+    let html = '';
+    availableTemplates.forEach(template => {
+      const dbTypeIcon = DatabaseUtils.getDbTypeIcon(template.db_type);
+      const envBadge = DatabaseUtils.getEnvironmentBadge(template.environment);
+      
+      html += `
+        <div class="col-12 col-md-6">
+          <div class="card template-select-card h-100" style="cursor: pointer;" onclick="applyTemplate('${template.id}')">
+            <div class="card-body">
+              <div class="d-flex align-items-center mb-2">
+                <div class="me-2" style="font-size: 1.5rem;">${dbTypeIcon}</div>
+                <div class="flex-grow-1">
+                  <h6 class="card-title mb-1">${DatabaseUtils.escapeHtml(template.name)}</h6>
+                  ${template.is_default ? '<span class="badge bg-warning text-dark">기본</span>' : ''}
+                </div>
+              </div>
+              <p class="card-text text-muted small mb-2">${DatabaseUtils.escapeHtml(template.description || '설명 없음')}</p>
+              <div class="row g-2 small">
+                <div class="col-6">
+                  <div class="text-muted">환경</div>
+                  <div>${envBadge}</div>
+                </div>
+                <div class="col-6">
+                  <div class="text-muted">포트</div>
+                  <div>${template.config.port || '-'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  }
+
+  // 템플릿 적용
+  window.applyTemplate = function(templateId) {
+    const template = availableTemplates.find(t => t.id === templateId);
+    if (!template) return;
+
+    applyTemplateToForm(template);
+    
+    // 모달 닫기
+    const modal = bootstrap.Modal.getInstance(document.getElementById('templateSelectModal'));
+    modal && modal.hide();
+    
+    swToast(`"${template.name}" 템플릿이 적용되었습니다.`, 'success');
+  };
+
+  // ID로 템플릿 적용
+  function applyTemplateById(templateId) {
+    const template = availableTemplates.find(t => t.id === templateId);
+    if (template) {
+      applyTemplateToForm(template);
+      swToast(`"${template.name}" 템플릿이 자동으로 적용되었습니다.`, 'info');
+    }
+  }
+
+  // 템플릿을 폼에 적용
+  function applyTemplateToForm(template) {
+    // 기본 설정 적용
+    if (formDbType) formDbType.value = template.db_type;
+    if (formEnvironment) formEnvironment.value = template.environment;
+    if (formPort) formPort.value = template.config.port || DatabaseUtils.getDefaultPort(template.db_type);
+    if (formSslMode) formSslMode.value = template.config.ssl_mode || 'require';
+    
+    // 백업 설정 적용
+    if (formFullBackupSchedule) formFullBackupSchedule.value = template.config.backup_schedule || 'daily';
+    if (formCompressionAlgorithm) formCompressionAlgorithm.value = template.config.compression || 'gzip';
+    
+    // DB 타입 변경 이벤트 트리거
+    handleDbTypeChange();
+    
+    selectedTemplate = template;
+  }
+
+  // 유틸리티 함수들 (DatabaseUtils 모듈 사용)
+  const getDbTypeIcon = window.DatabaseUtils.getDbTypeIcon;
+  const getEnvironmentBadge = window.DatabaseUtils.getEnvironmentBadge;
+  const getDefaultPort = window.DatabaseUtils.getDefaultPort;
+
+  // 연결 테스트 상태 설정
+  function setTestingState(isTesting) {
+    if (btnTestConnection && testSpinner) {
+      if (isTesting) {
+        btnTestConnection.disabled = true;
+        testSpinner.style.display = 'inline-block';
+        btnTestConnection.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>테스트 중...';
+      } else {
+        btnTestConnection.disabled = false;
+        testSpinner.style.display = 'none';
+        btnTestConnection.innerHTML = '<i class="fas fa-plug me-1"></i>연결 테스트';
+      }
+    }
+  }
+
+  // 연결 테스트 수행
+  async function testDatabaseConnection() {
+    try {
+      // 현재 폼 데이터로 연결 테스트
+      const payload = {
+        db_type: formDbType.value,
+        host: formHost.value.trim(),
+        port: Number(formPort.value) || 5432,
+        database_name: formDatabaseName.value.trim(),
+        username: formUsername.value.trim(),
+        password: formPassword.value || 'test', // 비밀번호가 비어있으면 임시 값
+        ssl_mode: formSslMode.value
+      };
+
+      // DB 타입별 유효성 검사
+      const validationResult = validateFormByDbType(payload);
+      if (!validationResult.isValid) {
+        showTestResult(false, '유효성 검사 실패', validationResult.message);
+        return;
+      }
+
+      setTestingState(true);
+      showTestResult(null, '연결 테스트 중...', '데이터베이스 연결을 확인하고 있습니다.');
+
+      // 임시 API 호출 (실제로는 서버에서 처리)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // 성공 시뮤레이션
+      const success = Math.random() > 0.3; // 70% 성공률
+      
+      if (success) {
+        showTestResult(true, '연결 성공', `${payload.db_type.toUpperCase()} 데이터베이스에 성공적으로 연결되었습니다.`);
+      } else {
+        showTestResult(false, '연결 실패', '데이터베이스 연결에 실패했습니다. 설정을 확인해주세요.');
+      }
+      
+    } catch (error) {
+      console.error('연결 테스트 오류:', error);
+      showTestResult(false, '연결 테스트 오류', error.message || '예상치 못한 오류가 발생했습니다.');
+    } finally {
+      setTestingState(false);
+    }
+  }
+
+  // 연결 테스트 결과 표시
+  function showTestResult(success, title, message, details = null) {
+    if (!connectionTestResult) return;
+    
+    connectionTestResult.style.display = 'block';
+    
+    if (testResultAlert) {
+      testResultAlert.className = `alert ${success === true ? 'alert-success' : success === false ? 'alert-danger' : 'alert-info'} mb-0`;
+    }
+    
+    if (testResultIcon) {
+      testResultIcon.className = `fas ${success === true ? 'fa-check-circle text-success' : success === false ? 'fa-times-circle text-danger' : 'fa-info-circle text-info'}`;
+    }
+    
+    if (testResultTitle) {
+      testResultTitle.textContent = title;
+    }
+    
+    if (testResultMessage) {
+      testResultMessage.textContent = message;
+    }
+    
+    if (testResultDetails && details) {
+      testResultDetails.textContent = details;
+      testResultDetails.style.display = 'block';
+    } else if (testResultDetails) {
+      testResultDetails.style.display = 'none';
+    }
+  }
+
 })();
