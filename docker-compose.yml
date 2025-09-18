@@ -1,0 +1,274 @@
+# PostgreSQL 클라우드 데이터베이스 자동 백업 시스템 Docker Compose
+version: '3.8'
+
+services:
+  # 메인 애플리케이션
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: backup-manager-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # 기본 설정
+      - DEBUG=false
+      - ENVIRONMENT=production
+      - LOG_LEVEL=info
+      
+      # 데이터베이스 설정
+      - DATABASE_URL=postgresql://backup_user:backup_pass@postgres:5432/backup_manager
+      
+      # 암호화 키 (실제 운영에서는 Docker Secrets 사용 권장)
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your_32_character_encryption_key}
+      
+      # Redis 설정 (캐싱 및 세션)
+      - REDIS_URL=redis://redis:6379/0
+      
+      # 백업 설정
+      - BACKUP_RETENTION_DAYS=30
+      - MAX_BACKUP_SIZE_GB=10
+      - COMPRESSION_ALGORITHM=gzip
+      
+      # 알림 설정
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}
+    
+    volumes:
+      # 백업 데이터 영구 저장
+      - backup_data:/app/data/backups
+      - backup_logs:/app/data/logs
+      - backup_reports:/app/data/reports
+      
+      # 설정 파일 마운트
+      - ./config:/app/config:ro
+      
+      # 임시 파일용 tmpfs (성능 향상)
+      - type: tmpfs
+        target: /app/data/temp
+        tmpfs:
+          size: 1G
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    networks:
+      - backup-network
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # 리소스 제한
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # PostgreSQL 메타데이터 데이터베이스
+  postgres:
+    image: postgres:15-alpine
+    container_name: backup-manager-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=backup_manager
+      - POSTGRES_USER=backup_user
+      - POSTGRES_PASSWORD=backup_pass
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --locale=C
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    
+    ports:
+      - "5432:5432"
+    
+    networks:
+      - backup-network
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U backup_user -d backup_manager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    # 리소스 제한
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # Redis (캐싱 및 세션 저장)
+  redis:
+    image: redis:7-alpine
+    container_name: backup-manager-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    
+    volumes:
+      - redis_data:/data
+    
+    ports:
+      - "6379:6379"
+    
+    networks:
+      - backup-network
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    
+    # 리소스 제한
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # Nginx 리버스 프록시 (선택사항)
+  nginx:
+    image: nginx:alpine
+    container_name: backup-manager-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    
+    depends_on:
+      - app
+    
+    networks:
+      - backup-network
+    
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # 모니터링 (Prometheus + Grafana)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: backup-manager-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    
+    networks:
+      - backup-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: backup-manager-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    
+    depends_on:
+      - prometheus
+    
+    networks:
+      - backup-network
+
+# 네트워크 설정
+networks:
+  backup-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# 볼륨 설정
+volumes:
+  # 애플리케이션 데이터
+  backup_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/backups
+  
+  backup_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/logs
+  
+  backup_reports:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/reports
+  
+  # 데이터베이스 데이터
+  postgres_data:
+    driver: local
+  
+  redis_data:
+    driver: local
+  
+  # 모니터링 데이터
+  prometheus_data:
+    driver: local
+  
+  grafana_data:
+    driver: local
+  
+  # 로그 데이터
+  nginx_logs:
+    driver: local

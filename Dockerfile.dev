@@ -1,0 +1,89 @@
+# 개발용 Dockerfile
+FROM python:3.11-slim
+
+# 메타데이터 설정
+LABEL maintainer="LocalBackUpManager Team"
+LABEL version="1.0.0-dev"
+LABEL description="PostgreSQL Cloud Database Automatic Backup System - Development"
+
+# 환경 변수 설정
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    DEBUG=true \
+    ENVIRONMENT=development
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# 시스템 패키지 업데이트 및 개발 도구 설치
+RUN apt-get update && apt-get install -y \
+    # PostgreSQL 클라이언트 도구
+    postgresql-client \
+    # 압축 도구
+    gzip \
+    bzip2 \
+    xz-utils \
+    # 네트워크 도구
+    curl \
+    wget \
+    # 시스템 도구
+    procps \
+    htop \
+    tree \
+    # 개발 도구
+    git \
+    vim \
+    nano \
+    # 빌드 도구
+    gcc \
+    g++ \
+    make \
+    # SSL/TLS 지원
+    ca-certificates \
+    # 정리
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python 의존성 파일 복사
+COPY requirements.txt .
+
+# Python 의존성 설치 (개발 도구 포함)
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt && \
+    # 개발용 추가 패키지
+    pip install \
+        pytest-watch \
+        black \
+        flake8 \
+        mypy \
+        pre-commit \
+        jupyter \
+        ipython
+
+# 애플리케이션 코드 복사 (개발 시에는 볼륨 마운트 사용)
+COPY . .
+
+# 디렉토리 구조 생성
+RUN mkdir -p /app/data/backups \
+    /app/data/logs \
+    /app/data/reports \
+    /app/data/temp \
+    /app/data/test \
+    && chmod -R 755 /app/data
+
+# 개발용 스크립트 생성
+RUN echo '#!/bin/bash\necho "Development environment ready!"\necho "Available commands:"\necho "  - pytest: Run tests"\necho "  - black .: Format code"\necho "  - flake8 .: Lint code"\necho "  - uvicorn app.main:app --reload: Start dev server"' > /app/dev-info.sh && \
+    chmod +x /app/dev-info.sh
+
+# 포트 노출
+EXPOSE 8000
+
+# 개발용 헬스체크 (더 관대한 설정)
+HEALTHCHECK --interval=60s --timeout=15s --start-period=10s --retries=2 \
+    CMD curl -f http://localhost:8000/api/health || exit 1
+
+# 개발 모드로 시작 (핫 리로드 활성화)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]

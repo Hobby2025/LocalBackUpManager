@@ -1,0 +1,206 @@
+# 개발용 Docker Compose
+version: '3.8'
+
+services:
+  # 개발용 애플리케이션
+  app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: backup-manager-app-dev
+    ports:
+      - "8000:8000"
+    environment:
+      # 개발 설정
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - LOG_LEVEL=debug
+      
+      # 데이터베이스 설정
+      - DATABASE_URL=postgresql://backup_user:backup_pass@postgres-dev:5432/backup_manager_dev
+      
+      # 테스트용 암호화 키
+      - ENCRYPTION_KEY=test_encryption_key_32_characters
+      
+      # Redis 설정
+      - REDIS_URL=redis://redis-dev:6379/0
+      
+      # 개발용 백업 설정
+      - BACKUP_RETENTION_DAYS=7
+      - MAX_BACKUP_SIZE_GB=1
+      - COMPRESSION_ALGORITHM=gzip
+      
+      # 테스트 알림 설정
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - SMTP_USER=test
+      - SMTP_PASSWORD=test
+    
+    volumes:
+      # 소스 코드 핫 리로드를 위한 바인드 마운트
+      - .:/app
+      - /app/.venv  # 가상환경 제외
+      - /app/__pycache__  # 캐시 제외
+      
+      # 개발용 데이터 디렉토리
+      - ./data/dev/backups:/app/data/backups
+      - ./data/dev/logs:/app/data/logs
+      - ./data/dev/reports:/app/data/reports
+    
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+      redis-dev:
+        condition: service_healthy
+    
+    networks:
+      - backup-network-dev
+    
+    # 개발용이므로 헬스체크 비활성화
+    # healthcheck:
+    #   disable: true
+
+  # 개발용 PostgreSQL
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: backup-manager-postgres-dev
+    environment:
+      - POSTGRES_DB=backup_manager_dev
+      - POSTGRES_USER=backup_user
+      - POSTGRES_PASSWORD=backup_pass
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --locale=C
+    
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    
+    ports:
+      - "5433:5432"  # 호스트의 5432 포트와 충돌 방지
+    
+    networks:
+      - backup-network-dev
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U backup_user -d backup_manager_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # 개발용 Redis
+  redis-dev:
+    image: redis:7-alpine
+    container_name: backup-manager-redis-dev
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    
+    volumes:
+      - redis_dev_data:/data
+    
+    ports:
+      - "6380:6379"  # 호스트의 6379 포트와 충돌 방지
+    
+    networks:
+      - backup-network-dev
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # 개발용 메일 서버 (MailHog)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: backup-manager-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    
+    networks:
+      - backup-network-dev
+
+  # 개발용 pgAdmin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: backup-manager-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin123
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    
+    ports:
+      - "5050:80"
+    
+    depends_on:
+      - postgres-dev
+    
+    networks:
+      - backup-network-dev
+
+  # 개발용 Redis Commander
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: backup-manager-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis-dev:6379
+    
+    ports:
+      - "8081:8081"
+    
+    depends_on:
+      - redis-dev
+    
+    networks:
+      - backup-network-dev
+
+  # 테스트용 PostgreSQL 서버 (백업 대상)
+  test-postgres:
+    image: postgres:15-alpine
+    container_name: backup-manager-test-postgres
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpass
+    
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+      - ./scripts/test-data.sql:/docker-entrypoint-initdb.d/test-data.sql:ro
+    
+    ports:
+      - "5434:5432"
+    
+    networks:
+      - backup-network-dev
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+# 개발용 네트워크
+networks:
+  backup-network-dev:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# 개발용 볼륨
+volumes:
+  postgres_dev_data:
+    driver: local
+  
+  redis_dev_data:
+    driver: local
+  
+  pgadmin_data:
+    driver: local
+  
+  test_postgres_data:
+    driver: local

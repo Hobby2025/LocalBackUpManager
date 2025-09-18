@@ -1,0 +1,172 @@
+# ConfigMap 매니페스트
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-manager-config
+  namespace: production
+  labels:
+    app: backup-manager
+    environment: production
+data:
+  # 애플리케이션 설정
+  environment: "production"
+  log-level: "info"
+  debug: "false"
+  
+  # 백업 설정
+  backup-retention-days: "30"
+  max-backup-size-gb: "10"
+  compression-algorithm: "gzip"
+  backup-schedule: "0 2 * * *"  # 매일 새벽 2시
+  
+  # 알림 설정
+  smtp-host: "smtp.gmail.com"
+  smtp-port: "587"
+  notification-enabled: "true"
+  
+  # 모니터링 설정
+  metrics-enabled: "true"
+  health-check-interval: "30"
+  
+  # 보안 설정
+  session-timeout: "3600"
+  max-login-attempts: "5"
+  password-min-length: "8"
+  
+  # 데이터베이스 설정
+  db-pool-size: "10"
+  db-max-overflow: "20"
+  db-pool-timeout: "30"
+  
+  # Redis 설정
+  redis-max-connections: "100"
+  redis-timeout: "5"
+  
+  # 파일 업로드 설정
+  max-file-size: "100MB"
+  allowed-extensions: ".sql,.gz,.bz2,.xz"
+
+---
+# 애플리케이션 설정 파일
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-manager-app-config
+  namespace: production
+  labels:
+    app: backup-manager
+    environment: production
+data:
+  settings.yaml: |
+    # 애플리케이션 설정
+    app:
+      name: "PostgreSQL Backup Manager"
+      version: "1.0.0"
+      environment: "production"
+      debug: false
+      log_level: "info"
+    
+    # 서버 설정
+    server:
+      host: "0.0.0.0"
+      port: 8000
+      workers: 4
+      timeout: 30
+    
+    # 데이터베이스 설정
+    database:
+      pool_size: 10
+      max_overflow: 20
+      pool_timeout: 30
+      pool_recycle: 3600
+    
+    # 백업 설정
+    backup:
+      retention_days: 30
+      max_size_gb: 10
+      compression: "gzip"
+      encryption: true
+      parallel_jobs: 2
+      
+      # 백업 스케줄
+      schedules:
+        daily: "0 2 * * *"
+        weekly: "0 3 * * 0"
+        monthly: "0 4 1 * *"
+    
+    # 알림 설정
+    notifications:
+      enabled: true
+      channels:
+        - email
+        - slack
+      
+      email:
+        smtp_host: "smtp.gmail.com"
+        smtp_port: 587
+        use_tls: true
+      
+      slack:
+        enabled: true
+        channel: "#backups"
+    
+    # 보안 설정
+    security:
+      session_timeout: 3600
+      max_login_attempts: 5
+      password_policy:
+        min_length: 8
+        require_uppercase: true
+        require_lowercase: true
+        require_numbers: true
+        require_special: true
+    
+    # 모니터링 설정
+    monitoring:
+      metrics_enabled: true
+      health_check_interval: 30
+      prometheus:
+        enabled: true
+        port: 9090
+    
+    # 로깅 설정
+    logging:
+      level: "info"
+      format: "json"
+      handlers:
+        - console
+        - file
+      
+      file:
+        path: "/app/data/logs/app.log"
+        max_size: "100MB"
+        backup_count: 5
+
+  databases.yaml: |
+    # 백업 대상 데이터베이스 설정 (예시)
+    databases:
+      - name: "production_db"
+        display_name: "Production Database"
+        host: "${PROD_DB_HOST}"
+        port: 5432
+        database: "${PROD_DB_NAME}"
+        username: "${PROD_DB_USER}"
+        password: "${PROD_DB_PASSWORD}"
+        ssl_mode: "require"
+        environment: "production"
+        priority: "high"
+        backup_schedule: "0 2 * * *"
+        retention_days: 30
+      
+      - name: "staging_db"
+        display_name: "Staging Database"
+        host: "${STAGING_DB_HOST}"
+        port: 5432
+        database: "${STAGING_DB_NAME}"
+        username: "${STAGING_DB_USER}"
+        password: "${STAGING_DB_PASSWORD}"
+        ssl_mode: "require"
+        environment: "staging"
+        priority: "medium"
+        backup_schedule: "0 3 * * *"
+        retention_days: 14

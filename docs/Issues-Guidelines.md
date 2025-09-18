@@ -450,10 +450,10 @@
 
 작업 내용:
 
-- [ ] Dockerfile 작성
-- [ ] docker-compose.yml 구성
-- [ ] CI/CD 파이프라인 구축
-- [ ] 운영 문서 작성
+- [x] Dockerfile 작성
+- [x] docker-compose.yml 구성
+- [x] CI/CD 파이프라인 구축
+- [x] 운영 문서 작성
 ```
 
 ### Phase 8: DB Type 확장 및 안정화
