@@ -125,3 +125,9 @@
 - README.md와 Development-Guidelines.md에 PostgreSQL/MySQL/SQLite 지원 가이드를 추가하여 각 DB별 백업 도구, 지원 버전, 백업 형식, 특징을 명시하고 어댑터 패턴 구현 방법을 상세히 문서화했습니다.
 - databases.yaml 설정 파일에 DB 타입별 특징과 환경변수 사용법을 설명하는 주석을 강화하고, Dockerfile에 mysql-client/sqlite3/lz4/zstd 등 다중 DB 백업에 필요한 클라이언트 도구와 압축 도구를 추가했습니다.
 - requirements.txt에 PyMySQL 드라이버가 포함되어 있음을 확인하고, 개발자들이 다중 DB 환경에서 효과적으로 개발할 수 있도록 DB별 특성, 에러 처리, 성능 최적화, 보안 고려사항을 포함한 종합적인 개발 가이드를 제공했습니다.
+
+## 8.5 통합 및 안정화 테스트 (다중 DB 품질 보증)
+
+- pytest 기반 다중 DB 통합 테스트(`test_multidb_integration.py`)로 PostgreSQL/MySQL/SQLite 어댑터 생성, 백업 명령어 생성, E2E 백업 시나리오를 검증하고, Mock과 실제 SQLite DB를 활용한 격리된 테스트 환경을 구축했습니다.
+- 성능 벤치마크 테스트(`test_performance_benchmarks.py`)로 SQLite 백업 방식별 성능 비교, 압축 알고리즘별 속도/압축률 분석, 동시 백업 처리 성능, 메모리 누수 감지를 통해 시스템 안정성과 성능 기준을 확립했습니다.
+- PostgreSQL 회귀 테스트(`test_regression_postgresql.py`)와 종합 배포 가이드(`Deployment-Guide-MultiDB.md`)로 기존 기능 호환성 보장과 로컬/Docker/Kubernetes 환경별 배포 절차를 제공하여 다중 DB 지원 시스템의 안정적인 운영 기반을 마련했습니다.
