@@ -429,4 +429,125 @@ def get_database_info(db_id: str):
 - [ ] 문서 업데이트
 - [ ] 성능 테스트 완료
 
-이 지침서를 통해 일관성 있고 품질 높은 클라우드 데이터베이스 백업 시스템을 개발할 수 있습니다.
+---
+
+## 📊 다중 데이터베이스 지원 가이드
+
+### 지원 데이터베이스 타입
+
+#### PostgreSQL
+- **백업 도구**: pg_dump, pg_basebackup
+- **연결 드라이버**: psycopg2-binary
+- **백업 형식**: Custom, Plain, Directory, Tar
+- **특징**: WAL 기반 증분 백업, PITR 지원
+
+```yaml
+# databases.yaml 예시
+production_postgres:
+  db_type: "postgresql"
+  host: "prod-postgres.company.com"
+  port: 5432
+  database: "production"
+  username: "backup_user"
+  password: "${PROD_POSTGRES_PASSWORD}"
+  ssl_mode: "require"
+```
+
+#### MySQL
+- **백업 도구**: mysqldump
+- **연결 드라이버**: PyMySQL
+- **백업 형식**: SQL 덤프
+- **특징**: 단일 트랜잭션 일관성, 저장 프로시저/트리거 포함
+
+```yaml
+# databases.yaml 예시
+production_mysql:
+  db_type: "mysql"
+  host: "prod-mysql.company.com"
+  port: 3306
+  database: "production"
+  username: "backup_user"
+  password: "${PROD_MYSQL_PASSWORD}"
+  ssl_mode: "require"
+```
+
+#### SQLite
+- **백업 도구**: sqlite3 backup API, 파일 복사
+- **연결 드라이버**: sqlite3 (내장)
+- **백업 형식**: 데이터베이스 파일, SQL 덤프
+- **특징**: WAL 체크포인트, 무결성 검사
+
+```yaml
+# databases.yaml 예시
+local_sqlite:
+  db_type: "sqlite"
+  host: "localhost"
+  port: 0
+  database: "/path/to/database.db"
+  username: ""
+  password: ""
+  ssl_mode: "disable"
+```
+
+### 어댑터 패턴 구현 가이드
+
+#### 1. 연결 어댑터 (DatabaseAdapter)
+```python
+from app.core.database_adapters import create_database_adapter
+
+# DB 타입별 동적 어댑터 생성
+adapter = create_database_adapter(db_type, database_id)
+pool = adapter.create_pool(host, port, dbname, user, password)
+```
+
+#### 2. 백업 어댑터 (BackupAdapter)
+```python
+from app.core.backup_adapters import create_backup_adapter
+
+# DB 타입별 최적화된 백업 실행
+adapter = create_backup_adapter(db_type, database_id)
+success, error, metadata = adapter.run_backup(
+    host=host, port=port, dbname=dbname,
+    user=user, password=password,
+    output_path=backup_path, options=backup_options
+)
+```
+
+#### 3. 후처리 파이프라인
+```python
+from app.core.backup_postprocessor import backup_postprocessor
+
+# 통합 후처리 (압축/암호화/체크섬)
+success, final_path, metadata = backup_postprocessor.process_backup_file(
+    input_path=backup_path,
+    output_dir=output_dir,
+    compress=True,
+    compression_type="gzip",
+    encrypt=True,
+    calculate_checksum=True
+)
+```
+
+### 개발 시 주의사항
+
+1. **DB별 특성 고려**
+   - PostgreSQL: 연결 풀 관리, WAL 아카이빙
+   - MySQL: 트랜잭션 격리, 문자셋 처리
+   - SQLite: 파일 잠금, WAL 모드 처리
+
+2. **에러 처리**
+   - DB별 고유 에러 코드 처리
+   - 연결 타임아웃 및 재시도 로직
+   - 백업 실패 시 정리 작업
+
+3. **성능 최적화**
+   - DB별 최적 압축 알고리즘 선택
+   - 병렬 처리 가능 여부 확인
+   - 메모리 사용량 모니터링
+
+4. **보안 고려사항**
+   - DB별 SSL/TLS 설정
+   - 인증 방식 차이점 처리
+   - 비밀번호 암호화 저장
+
+이 지침서를 통해 일관성 있고 품질 높은 다중 데이터베이스 백업 시스템을 개발할 수 있습니다.

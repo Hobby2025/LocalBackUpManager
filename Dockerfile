@@ -1,10 +1,10 @@
-# PostgreSQL 클라우드 데이터베이스 자동 백업 시스템 Dockerfile
+# 다중 DB 클라우드 데이터베이스 자동 백업 시스템 Dockerfile
 FROM python:3.11-slim
 
 # 메타데이터 설정
 LABEL maintainer="LocalBackUpManager Team"
 LABEL version="1.0.0"
-LABEL description="PostgreSQL Cloud Database Automatic Backup System"
+LABEL description="Multi-Database Cloud Backup System (PostgreSQL, MySQL, SQLite)"
 
 # 환경 변수 설정
 ENV PYTHONUNBUFFERED=1 \
@@ -18,12 +18,16 @@ WORKDIR /app
 
 # 시스템 패키지 업데이트 및 필수 패키지 설치
 RUN apt-get update && apt-get install -y \
-    # PostgreSQL 클라이언트 도구
+    # 데이터베이스 클라이언트 도구
     postgresql-client \
+    mysql-client \
+    sqlite3 \
     # 압축 도구
     gzip \
     bzip2 \
     xz-utils \
+    lz4 \
+    zstd \
     # 네트워크 도구
     curl \
     wget \

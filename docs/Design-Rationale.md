@@ -119,3 +119,9 @@
 - `BackupAdapter` 추상 인터페이스를 정의하고 PostgreSQL(pg_dump), MySQL(mysqldump), SQLite(backup API/파일복사/dump) 각각에 최적화된 백업 전략을 구현하여 DB별 특성을 반영한 백업 옵션을 제공했습니다.
 - 공통 후처리 모듈(`BackupPostProcessor`)을 분리하여 압축(gzip/lz4/zstd), 암호화(AES-256-GCM), 체크섬(SHA-256) 기능을 재사용 가능하도록 구현하고, 통합 파이프라인으로 일관된 후처리를 보장했습니다.
 - 기존 `BackupEngine`을 어댑터 패턴 기반으로 리팩토링(`BackupEngineV2`)하여 DB 타입별 동적 어댑터 선택과 공통 후처리 적용이 가능하도록 하고, 메타데이터 통합 관리로 운영 편의성을 향상시켰습니다.
+
+## 8.4 설정·문서·배포 업데이트 (다중 DB 지원 문서화)
+
+- README.md와 Development-Guidelines.md에 PostgreSQL/MySQL/SQLite 지원 가이드를 추가하여 각 DB별 백업 도구, 지원 버전, 백업 형식, 특징을 명시하고 어댑터 패턴 구현 방법을 상세히 문서화했습니다.
+- databases.yaml 설정 파일에 DB 타입별 특징과 환경변수 사용법을 설명하는 주석을 강화하고, Dockerfile에 mysql-client/sqlite3/lz4/zstd 등 다중 DB 백업에 필요한 클라이언트 도구와 압축 도구를 추가했습니다.
+- requirements.txt에 PyMySQL 드라이버가 포함되어 있음을 확인하고, 개발자들이 다중 DB 환경에서 효과적으로 개발할 수 있도록 DB별 특성, 에러 처리, 성능 최적화, 보안 고려사항을 포함한 종합적인 개발 가이드를 제공했습니다.
