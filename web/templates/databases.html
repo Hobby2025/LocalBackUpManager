@@ -411,6 +411,22 @@
                   </div>
                 </div>
               </div>
+              
+              <!-- 연결 테스트 결과 영역 -->
+              <div class="row mt-3" id="connection-test-result" style="display: none;">
+                <div class="col-12">
+                  <div class="alert" role="alert" id="test-result-alert">
+                    <div class="d-flex align-items-center">
+                      <div class="me-2" id="test-result-icon"></div>
+                      <div class="flex-grow-1">
+                        <div class="fw-bold" id="test-result-title"></div>
+                        <div class="small" id="test-result-message"></div>
+                        <div class="small text-muted mt-1" id="test-result-details"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </form>
           </div>
           <div class="modal-footer">
@@ -420,6 +436,10 @@
               data-bs-dismiss="modal"
             >
               닫기
+            </button>
+            <button type="button" class="btn btn-info me-auto" id="btn-test-connection">
+              <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" style="display: none;" id="test-spinner"></span>
+              🔗 연결 테스트
             </button>
             <button type="button" class="btn btn-primary" id="btn-save">
               저장
