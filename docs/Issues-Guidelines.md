@@ -514,10 +514,10 @@
 
 작업 내용:
 
-- [ ] README/Development-Guidelines에 다중 DB 지원 가이드 추가
-- [ ] databases.yaml에 mysql/sqlite 예시 추가 및 주석 강화
-- [ ] requirements.txt에 MySQL 드라이버 추가(PyMySQL 또는 mysqlclient) 검토
-- [ ] Dockerfile에 mysql-client(mysqldump) 설치 추가
+- [x] README/Development-Guidelines에 다중 DB 지원 가이드 추가
+- [x] databases.yaml에 mysql/sqlite 예시 추가 및 주석 강화
+- [x] requirements.txt에 MySQL 드라이버 추가(PyMySQL 또는 mysqlclient) 검토
+- [x] Dockerfile에 mysql-client(mysqldump) 설치 추가
 ```
 
 #### 8.5 통합 및 안정화 테스트
