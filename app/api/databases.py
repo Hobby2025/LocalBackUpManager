@@ -21,11 +21,12 @@ async def get_databases(
     skip: int = 0,
     limit: int = 100,
     q: Optional[str] = Query(None, description="이름/표시명/호스트 검색"),
+    db_type: Optional[str] = Query(None, description="데이터베이스 타입 필터 (postgresql, mysql, sqlite)"),
     environment: Optional[str] = Query(None, description="환경 필터"),
     priority: Optional[str] = Query(None, description="우선순위 필터"),
     status_filter: Optional[str] = Query(None, description="연결 상태 필터"),
     include_inactive: bool = Query(False, description="비활성 포함 여부"),
-    sort: Optional[str] = Query(None, description="정렬 필드(name, environment, priority, host, port, connection_status)"),
+    sort: Optional[str] = Query(None, description="정렬 필드(name, db_type, environment, priority, host, port, connection_status)"),
     order: Optional[str] = Query("asc", description="정렬 방향 asc/desc"),
     page: Optional[int] = Query(None, ge=1, description="페이지 번호(선택)"),
     page_size: Optional[int] = Query(None, ge=1, le=500, description="페이지 크기(선택)"),
@@ -48,7 +49,9 @@ async def get_databases(
                 (Database.host.ilike(like))
             )
 
-        # 환경/우선순위/상태 필터
+        # DB 타입/환경/우선순위/상태 필터
+        if db_type:
+            query = query.filter(Database.db_type == db_type)
         if environment:
             query = query.filter(Database.environment == environment)
         if priority:
@@ -59,6 +62,7 @@ async def get_databases(
         # 정렬
         sort_map = {
             "name": Database.name,
+            "db_type": Database.db_type,
             "environment": Database.environment,
             "priority": Database.priority,
             "host": Database.host,
@@ -140,6 +144,31 @@ async def create_database(
                     detail=f"필수 필드가 누락되었습니다: {field}"
                 )
         
+        # db_type 검증
+        valid_db_types = ["postgresql", "mysql", "sqlite"]
+        db_type = database_data.get("db_type", "postgresql")
+        if db_type not in valid_db_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"지원하지 않는 데이터베이스 타입입니다. 지원 타입: {', '.join(valid_db_types)}"
+            )
+        
+        # 환경 검증
+        valid_environments = ["production", "staging", "development"]
+        if database_data["environment"] not in valid_environments:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"올바르지 않은 환경입니다. 지원 환경: {', '.join(valid_environments)}"
+            )
+        
+        # 우선순위 검증
+        valid_priorities = ["high", "medium", "low"]
+        if database_data["priority"] not in valid_priorities:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"올바르지 않은 우선순위입니다. 지원 우선순위: {', '.join(valid_priorities)}"
+            )
+        
         # 데이터베이스 생성
         new_database = create_database_record(
             db,
@@ -151,6 +180,7 @@ async def create_database(
             username=database_data["username"],
             password_encrypted=database_data["password"],  # TODO: 암호화 구현
             ssl_mode=database_data.get("ssl_mode", "require"),
+            db_type=db_type,
             environment=database_data["environment"],
             priority=database_data["priority"]
         )
@@ -186,11 +216,41 @@ async def update_database(
             )
         
         # 업데이트 가능한 필드들
-        updatable_fields = ["display_name", "host", "port", "database_name", "username", "ssl_mode", "environment", "priority", "is_active"]
+        updatable_fields = ["display_name", "host", "port", "database_name", "username", "ssl_mode", "db_type", "environment", "priority", "is_active"]
         
+        # 필드별 검증
         for field in updatable_fields:
             if field in database_data:
-                setattr(database, field, database_data[field])
+                value = database_data[field]
+                
+                # db_type 검증
+                if field == "db_type":
+                    valid_db_types = ["postgresql", "mysql", "sqlite"]
+                    if value not in valid_db_types:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"지원하지 않는 데이터베이스 타입입니다. 지원 타입: {', '.join(valid_db_types)}"
+                        )
+                
+                # 환경 검증
+                elif field == "environment":
+                    valid_environments = ["production", "staging", "development"]
+                    if value not in valid_environments:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"올바르지 않은 환경입니다. 지원 환경: {', '.join(valid_environments)}"
+                        )
+                
+                # 우선순위 검증
+                elif field == "priority":
+                    valid_priorities = ["high", "medium", "low"]
+                    if value not in valid_priorities:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"올바르지 않은 우선순위입니다. 지원 우선순위: {', '.join(valid_priorities)}"
+                        )
+                
+                setattr(database, field, value)
         
         # 비밀번호 입력 정책: 공란 또는 미전달이면 유지, 값이 있으면 변경
         if "password" in database_data:

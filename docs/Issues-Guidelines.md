@@ -467,10 +467,10 @@
 
 작업 내용:
 
-- [ ] Database 테이블에 db_type 컬럼 추가 (postgresql/mysql/sqlite)
-- [ ] Alembic 마이그레이션 생성 및 적용 가이드
-- [ ] API 입력 검증에 db_type 반영 (생성/수정)
-- [ ] config/databases.yaml 예시 업데이트 (DB 유형별 샘플)
+- [x] Database 테이블에 db_type 컬럼 추가 (postgresql/mysql/sqlite)
+- [x] Alembic 마이그레이션 생성 및 적용 가이드
+- [x] API 입력 검증에 db_type 반영 (생성/수정)
+- [x] config/databases.yaml 예시 업데이트 (DB 유형별 샘플)
 ```
 
 #### 8.2 DatabaseManager 어댑터화 (연결/풀/테스트)

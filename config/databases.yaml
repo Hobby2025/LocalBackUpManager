@@ -1,17 +1,19 @@
-# 클라우드 데이터베이스 데이터베이스 설정 파일 예시
+# 다중 데이터베이스 타입 지원 설정 파일 예시
+# PostgreSQL, MySQL, SQLite 백업을 지원합니다
 # 이 파일을 복사하여 databases.yaml로 사용하세요
 
 # 다중 데이터베이스 설정
 databases:
-  # 운영 데이터베이스 예시
-  production_db:
-    name: "운영 데이터베이스"
-    host: "prod-db.company.com"
+  # PostgreSQL 운영 데이터베이스 예시
+  production_postgres:
+    name: "운영 PostgreSQL 데이터베이스"
+    host: "prod-postgres.company.com"
     port: 5432
     database: "production"
     username: "backup_user"
-    password: "${PROD_DB_PASSWORD}" # 환경변수 사용
+    password: "${PROD_POSTGRES_PASSWORD}" # 환경변수 사용
     ssl_mode: "require"
+    db_type: "postgresql"  # 데이터베이스 타입 지정
     priority: "high"
     environment: "production"
 
@@ -26,15 +28,39 @@ databases:
         weekly: 4
         monthly: 12
 
-  # 스테이징 데이터베이스 예시
-  staging_db:
-    name: "스테이징 데이터베이스"
-    host: "staging-db.company.com"
+  # MySQL 운영 데이터베이스 예시
+  production_mysql:
+    name: "운영 MySQL 데이터베이스"
+    host: "prod-mysql.company.com"
+    port: 3306
+    database: "production"
+    username: "backup_user"
+    password: "${PROD_MYSQL_PASSWORD}"
+    ssl_mode: "require"
+    db_type: "mysql"  # MySQL 타입
+    priority: "high"
+    environment: "production"
+
+    backup_config:
+      full_backup_schedule: "0 3 * * 0" # 매주 일요일 3시
+      incremental_schedule: "0 */8 * * *" # 8시간마다
+      compression: "gzip"
+      encryption: true
+      retention_policy:
+        daily: 7
+        weekly: 4
+        monthly: 12
+
+  # PostgreSQL 스테이징 데이터베이스 예시
+  staging_postgres:
+    name: "스테이징 PostgreSQL 데이터베이스"
+    host: "staging-postgres.company.com"
     port: 5432
     database: "staging"
     username: "backup_user"
-    password: "${STAGING_DB_PASSWORD}"
+    password: "${STAGING_POSTGRES_PASSWORD}"
     ssl_mode: "prefer"
+    db_type: "postgresql"
     priority: "medium"
     environment: "staging"
 
@@ -47,3 +73,49 @@ databases:
         daily: 14
         weekly: 8
         monthly: 6
+
+  # MySQL 개발 데이터베이스 예시
+  development_mysql:
+    name: "개발 MySQL 데이터베이스"
+    host: "dev-mysql.company.com"
+    port: 3306
+    database: "development"
+    username: "dev_user"
+    password: "${DEV_MYSQL_PASSWORD}"
+    ssl_mode: "disable"
+    db_type: "mysql"
+    priority: "low"
+    environment: "development"
+
+    backup_config:
+      full_backup_schedule: "0 4 * * 2" # 매주 화요일 4시
+      incremental_schedule: "0 0 */2 * *" # 2일마다
+      compression: "gzip"
+      encryption: false
+      retention_policy:
+        daily: 3
+        weekly: 2
+        monthly: 1
+
+  # SQLite 로컬 데이터베이스 예시 (테스트/개발용)
+  local_sqlite:
+    name: "로컬 SQLite 데이터베이스"
+    host: "localhost"  # SQLite는 파일 기반이지만 일관성을 위해 localhost 사용
+    port: 0  # SQLite는 포트를 사용하지 않음
+    database: "/path/to/database.db"  # SQLite 파일 경로
+    username: ""  # SQLite는 사용자명 불필요
+    password: ""  # SQLite는 비밀번호 불필요
+    ssl_mode: "disable"
+    db_type: "sqlite"
+    priority: "low"
+    environment: "development"
+
+    backup_config:
+      full_backup_schedule: "0 5 * * *" # 매일 5시
+      incremental_schedule: ""  # SQLite는 증분 백업 미지원
+      compression: "gzip"
+      encryption: false
+      retention_policy:
+        daily: 7
+        weekly: 2
+        monthly: 1
