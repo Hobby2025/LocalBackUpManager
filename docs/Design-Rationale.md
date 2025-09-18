@@ -101,3 +101,9 @@
 - Python 3.11-slim 기반 멀티스테이지 빌드와 비root 사용자 실행으로 보안성과 이미지 최적화를 달성하고, Docker Compose를 통해 애플리케이션/PostgreSQL/Redis/모니터링 서비스를 환경별(운영/개발)로 분리 구성했습니다.
 - GitHub Actions 기반 CI/CD 파이프라인으로 코드 품질 검사→다중 버전 테스트→Docker 빌드→보안 스캔의 단계적 검증을 수행하고, Blue-Green 배포 전략과 스테이징→프로덕션 단계적 배포로 무중단 서비스를 보장합니다.
 - Kubernetes 매니페스트와 상세한 배포 가이드를 제공하여 Docker Compose/Kubernetes/클라우드 환경에서의 배포 유연성을 확보하고, Prometheus/Grafana 모니터링과 ELK Stack 로깅으로 운영 가시성을 강화했습니다.
+
+## 8.1 Database 메타모델 확장 (db_type 지원)
+
+- `Database` 모델에 `db_type` 컬럼을 추가하여 PostgreSQL, MySQL, SQLite 등 다중 데이터베이스 타입을 지원하고, 기본값 `postgresql`로 기존 레코드 호환성을 보장했습니다.
+- Alembic 마이그레이션(`20250918_add_db_type_column.py`)으로 안전한 스키마 변경을 수행하고, `ix_databases_db_type`와 `ix_databases_db_type_environment` 인덱스를 추가해 조회 성능을 최적화했습니다.
+- API 입력 검증에 `db_type` 필드를 반영하여 생성/수정 시 지원하지 않는 DB 타입 입력을 차단하고, 필터링(`?db_type=postgresql`) 및 정렬(`?sort=db_type`) 기능을 제공해 운영 편의성을 향상시켰습니다.

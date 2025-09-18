@@ -84,6 +84,7 @@ class Database(Base):
     username = Column(String(255), nullable=False)
     password_encrypted = Column(Text, nullable=False)
     ssl_mode = Column(String(20), default='require')
+    db_type = Column(String(20), nullable=False, default='postgresql')  # postgresql, mysql, sqlite
     environment = Column(String(20), nullable=False)  # production, staging, development
     priority = Column(String(10), nullable=False)     # high, medium, low
     is_active = Column(Boolean, default=True)
