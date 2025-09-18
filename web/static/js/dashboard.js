@@ -32,13 +32,283 @@
   const elCompLz4 = document.getElementById("comp-lz4");
   // 헤더 드롭다운: DB SSL 기본 모드 선택 요소
   const selectDbSslMode = document.getElementById("select-db-ssl-mode");
+  
+  // DB 타입별 상태 모니터링 요소들
+  const btnRefreshDbStatus = document.getElementById("btn-refresh-db-status");
+  const autoRefreshToggle = document.getElementById("auto-refresh-toggle");
+  const dbStatusTimestamp = document.getElementById("db-status-timestamp");
+  const postgresqlCount = document.getElementById("postgresql-count");
+  const mysqlCount = document.getElementById("mysql-count");
+  const sqliteCount = document.getElementById("sqlite-count");
+  const postgresqlDatabases = document.getElementById("postgresql-databases");
+  const mysqlDatabases = document.getElementById("mysql-databases");
+  const sqliteDatabases = document.getElementById("sqlite-databases");
 
   let backupsChart;
   let averagesChart;
+  let dbStatusRefreshInterval;
 
   // 유틸: 텍스트 설정
   function setText(el, text) {
     if (el) el.textContent = text;
+  }
+
+  // 유틸: 시간 포맷팅
+  function formatTime(dateString) {
+    if (!dateString || dateString === '-') return '-';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('ko-KR', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  // 유틸: 상대 시간 표시
+  function getRelativeTime(dateString) {
+    if (!dateString || dateString === '-') return '-';
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+
+      if (diffMins < 1) return '방금 전';
+      if (diffMins < 60) return `${diffMins}분 전`;
+      if (diffHours < 24) return `${diffHours}시간 전`;
+      if (diffDays < 7) return `${diffDays}일 전`;
+      return formatTime(dateString);
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  // 연결 상태 배지 생성
+  function getConnectionStatusBadge(status) {
+    const statusMap = {
+      'connected': { class: 'bg-success', text: '연결됨', icon: '🟢' },
+      'error': { class: 'bg-danger', text: '오류', icon: '🔴' },
+      'unknown': { class: 'bg-secondary', text: '알 수 없음', icon: '⚪' },
+      'testing': { class: 'bg-warning', text: '테스트 중', icon: '🟡' }
+    };
+    const config = statusMap[status] || statusMap['unknown'];
+    return `<span class="badge ${config.class}">${config.icon} ${config.text}</span>`;
+  }
+
+  // 백업 성공률 배지 생성
+  function getSuccessRateBadge(rate) {
+    if (rate === null || rate === undefined || rate === '-') {
+      return '<span class="badge bg-secondary">-</span>';
+    }
+    const numRate = parseFloat(rate);
+    let badgeClass = 'bg-secondary';
+    if (numRate >= 95) badgeClass = 'bg-success';
+    else if (numRate >= 80) badgeClass = 'bg-warning';
+    else badgeClass = 'bg-danger';
+    
+    return `<span class="badge ${badgeClass}">${numRate.toFixed(1)}%</span>`;
+  }
+
+  // DB 타입별 상태 데이터 가져오기
+  async function loadDbTypeStatus() {
+    try {
+      const response = await fetch('/api/databases?include_inactive=true');
+      if (!response.ok) throw new Error('데이터베이스 목록 조회 실패');
+      
+      const data = await response.json();
+      const databases = data.databases || [];
+      
+      // DB 타입별로 그룹화
+      const groupedDbs = {
+        postgresql: databases.filter(db => db.db_type === 'postgresql'),
+        mysql: databases.filter(db => db.db_type === 'mysql'),
+        sqlite: databases.filter(db => db.db_type === 'sqlite')
+      };
+      
+      // 각 그룹 렌더링
+      renderDbGroup('postgresql', groupedDbs.postgresql);
+      renderDbGroup('mysql', groupedDbs.mysql);
+      renderDbGroup('sqlite', groupedDbs.sqlite);
+      
+      // 카운트 업데이트
+      setText(postgresqlCount, groupedDbs.postgresql.length);
+      setText(mysqlCount, groupedDbs.mysql.length);
+      setText(sqliteCount, groupedDbs.sqlite.length);
+      
+      // 타임스탬프 업데이트
+      setText(dbStatusTimestamp, new Date().toLocaleString('ko-KR'));
+      
+    } catch (error) {
+      console.error('DB 상태 로드 오류:', error);
+      showDbGroupError('postgresql');
+      showDbGroupError('mysql');
+      showDbGroupError('sqlite');
+    }
+  }
+
+  // DB 그룹 렌더링
+  function renderDbGroup(dbType, databases) {
+    const container = document.getElementById(`${dbType}-databases`);
+    if (!container) return;
+    
+    if (databases.length === 0) {
+      container.innerHTML = `
+        <div class="text-center text-muted py-3">
+          <div class="mb-2">📭</div>
+          <div>등록된 ${dbType.toUpperCase()} 데이터베이스가 없습니다.</div>
+        </div>
+      `;
+      return;
+    }
+    
+    let html = '';
+    databases.forEach(db => {
+      const lastBackupTime = getRelativeTime(db.last_backup_time);
+      const connectionStatus = getConnectionStatusBadge(db.connection_status);
+      const successRate = getSuccessRateBadge(db.backup_success_rate);
+      
+      html += `
+        <div class="card mb-2 border-0 shadow-sm">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+                <h6 class="card-title mb-1">${escapeHtml(db.display_name || db.name)}</h6>
+                <small class="text-muted">${escapeHtml(db.host)}:${db.port}</small>
+              </div>
+              <div class="text-end">
+                ${connectionStatus}
+              </div>
+            </div>
+            <div class="row g-2 small">
+              <div class="col-6">
+                <div class="text-muted">마지막 백업</div>
+                <div class="fw-semibold">${lastBackupTime}</div>
+              </div>
+              <div class="col-6">
+                <div class="text-muted">성공률</div>
+                <div>${successRate}</div>
+              </div>
+            </div>
+            <div class="row g-2 small mt-2">
+              <div class="col-6">
+                <div class="text-muted">환경</div>
+                <span class="badge bg-outline-secondary">${db.environment}</span>
+              </div>
+              <div class="col-6">
+                <div class="text-muted">우선순위</div>
+                <span class="badge bg-outline-${getPriorityColor(db.priority)}">${db.priority}</span>
+              </div>
+            </div>
+            <div class="mt-2">
+              <button class="btn btn-sm btn-outline-primary me-1" onclick="testConnection('${db.id}')">
+                연결 테스트
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="viewDbDetails('${db.id}')">
+                상세보기
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    container.innerHTML = html;
+  }
+
+  // DB 그룹 오류 표시
+  function showDbGroupError(dbType) {
+    const container = document.getElementById(`${dbType}-databases`);
+    if (!container) return;
+    
+    container.innerHTML = `
+      <div class="text-center text-danger py-3">
+        <div class="mb-2">⚠️</div>
+        <div>데이터 로드 중 오류가 발생했습니다.</div>
+        <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadDbTypeStatus()">
+          다시 시도
+        </button>
+      </div>
+    `;
+  }
+
+  // 우선순위 색상 매핑
+  function getPriorityColor(priority) {
+    const colorMap = {
+      'high': 'danger',
+      'medium': 'warning', 
+      'low': 'success'
+    };
+    return colorMap[priority] || 'secondary';
+  }
+
+  // HTML 이스케이프
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // 연결 테스트 (전역 함수)
+  window.testConnection = async function(dbId) {
+    try {
+      const response = await fetch(`/api/databases/${dbId}/test-connection`, {
+        method: 'POST'
+      });
+      const result = await response.json();
+      
+      if (response.ok) {
+        if (window.Swal) {
+          window.Swal.fire({
+            icon: result.status === 'success' ? 'success' : 'error',
+            title: '연결 테스트 결과',
+            text: `${result.message} (${result.response_time_ms}ms)`,
+            timer: 3000
+          });
+        } else {
+          alert(`${result.message} (${result.response_time_ms}ms)`);
+        }
+        
+        // 상태 새로고침
+        setTimeout(loadDbTypeStatus, 1000);
+      } else {
+        throw new Error(result.detail || '연결 테스트 실패');
+      }
+    } catch (error) {
+      console.error('연결 테스트 오류:', error);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: '연결 테스트 실패',
+          text: error.message
+        });
+      } else {
+        alert('연결 테스트 실패: ' + error.message);
+      }
+    }
+  };
+
+  // DB 상세보기 (전역 함수)
+  window.viewDbDetails = function(dbId) {
+    window.location.href = `/databases?highlight=${dbId}`;
+  };
+
+  // 자동 새로고침 설정
+  function setupAutoRefresh() {
+    if (dbStatusRefreshInterval) {
+      clearInterval(dbStatusRefreshInterval);
+    }
+    
+    if (autoRefreshToggle && autoRefreshToggle.checked) {
+      dbStatusRefreshInterval = setInterval(loadDbTypeStatus, 30000); // 30초마다
+    }
   }
 
   // SSE(EventSource)로 실시간 스트림 구독 (가능한 경우)
@@ -791,4 +1061,29 @@
           elReportResult.textContent = e.message || "보고서 생성 실패";
       }
     });
+
+  // DB 타입별 상태 모니터링 이벤트 리스너
+  if (btnRefreshDbStatus) {
+    btnRefreshDbStatus.addEventListener('click', loadDbTypeStatus);
+  }
+
+  if (autoRefreshToggle) {
+    autoRefreshToggle.addEventListener('change', setupAutoRefresh);
+  }
+
+  // 페이지 로드 시 DB 상태 초기화
+  document.addEventListener('DOMContentLoaded', function() {
+    // 기존 초기화 후 DB 상태 로드
+    setTimeout(() => {
+      loadDbTypeStatus();
+      setupAutoRefresh();
+    }, 1000);
+  });
+
+  // 페이지 언로드 시 인터벌 정리
+  window.addEventListener('beforeunload', function() {
+    if (dbStatusRefreshInterval) {
+      clearInterval(dbStatusRefreshInterval);
+    }
+  });
 })();
