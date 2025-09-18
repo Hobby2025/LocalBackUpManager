@@ -13,9 +13,20 @@ from app.database import get_db, Database, get_all_databases, get_database_by_id
 from app.config import get_config_manager
 from app.core.database_manager import db_manager
 from app.core.auth import require_roles
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# 임시 연결 테스트용 모델
+class TempConnectionTest(BaseModel):
+    db_type: str
+    host: str
+    port: int
+    database_name: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    ssl_mode: Optional[str] = "require"
 
 @router.get("/", summary="모든 데이터베이스 조회")
 async def get_databases(
@@ -361,6 +372,69 @@ async def test_database_connection(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="데이터베이스 연결 테스트 중 오류가 발생했습니다."
+        )
+
+@router.post("/test-connection-temp", summary="임시 데이터베이스 연결 테스트")
+async def test_temp_database_connection(
+    connection_data: TempConnectionTest
+):
+    """신규 등록 전 임시로 데이터베이스 연결을 테스트합니다."""
+    try:
+        # SQLite의 경우 특별 처리
+        if connection_data.db_type.lower() == 'sqlite':
+            if not connection_data.host:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="SQLite 파일 경로가 필요합니다."
+                )
+            
+            # SQLite는 파일 존재 여부만 확인
+            import os
+            if not os.path.exists(connection_data.host):
+                return {
+                    "status": "failed",
+                    "message": f"SQLite 파일을 찾을 수 없습니다: {connection_data.host}",
+                    "response_time_ms": 0
+                }
+            else:
+                return {
+                    "status": "success",
+                    "message": "SQLite 파일이 존재합니다.",
+                    "response_time_ms": 1
+                }
+
+        # PostgreSQL, MySQL의 경우 실제 연결 테스트
+        if not connection_data.username or not connection_data.password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="사용자명과 비밀번호가 필요합니다."
+            )
+
+        # 실제 연결 테스트 수행
+        success, elapsed_ms, error_msg = db_manager.test_connection(
+            db_type=connection_data.db_type,
+            host=connection_data.host,
+            port=connection_data.port,
+            dbname=connection_data.database_name,
+            user=connection_data.username,
+            password=connection_data.password,
+            sslmode=connection_data.ssl_mode,
+            timeout_seconds=10,  # 임시 테스트는 조금 더 긴 타임아웃
+        )
+
+        return {
+            "status": "success" if success else "failed",
+            "message": "데이터베이스 연결이 성공했습니다." if success else (error_msg or "연결 오류가 발생했습니다."),
+            "response_time_ms": round(elapsed_ms, 2)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"임시 데이터베이스 연결 테스트 오류: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"연결 테스트 중 오류가 발생했습니다: {str(e)}"
         )
 
 @router.get("/config", summary="databases.yaml 설정 조회 (환경변수 확장 적용)")
