@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ko" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스마트 DB 설정 마법사 - LocalBackUpManager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .wizard-container {
+            max-width: 800px;
+            margin: 2rem auto;
+        }
+        
+        .wizard-step {
+            display: none;
+        }
+        
+        .wizard-step.active {
+            display: block;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+        
+        .step-item {
+            display: flex;
+            align-items: center;
+            margin: 0 1rem;
+        }
+        
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .step-item.completed .step-number {
+            background-color: #198754;
+            color: white;
+        }
+        
+        .step-item.active .step-number {
+            background-color: #0d6efd;
+            color: white;
+        }
+        
+        .step-item.pending .step-number {
+            background-color: #e9ecef;
+            color: #6c757d;
+        }
+        
+        .step-connector {
+            width: 60px;
+            height: 2px;
+            background-color: #e9ecef;
+            margin: 0 1rem;
+        }
+        
+        .step-connector.completed {
+            background-color: #198754;
+        }
+        
+        .db-type-card {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .db-type-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        .db-type-card.selected {
+            border-color: #0d6efd;
+            background-color: rgba(13, 110, 253, 0.05);
+        }
+        
+        .recommendation-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        
+        .progress-wizard {
+            height: 8px;
+            margin-bottom: 2rem;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-list li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+        
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-list .fas {
+            color: #198754;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- 네비게이션 바 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-database me-2"></i>LocalBackUpManager
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/databases">
+                    <i class="fas fa-arrow-left me-1"></i>데이터베이스 관리로 돌아가기
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container wizard-container">
+        <!-- 마법사 헤더 -->
+        <div class="text-center mb-4">
+            <h1 class="display-6 mb-3">🧙‍♂️ 스마트 DB 설정 마법사</h1>
+            <p class="lead text-muted">단 3단계로 첫 번째 데이터베이스를 쉽게 설정하세요!</p>
+        </div>
+
+        <!-- 진행률 표시 -->
+        <div class="progress progress-wizard">
+            <div id="wizard-progress" class="progress-bar progress-bar-striped progress-bar-animated" 
+                 role="progressbar" style="width: 33%"></div>
+        </div>
+
+        <!-- 단계 표시기 -->
+        <div class="step-indicator">
+            <div class="step-item active" id="step-indicator-1">
+                <div class="step-number">1</div>
+                <span>DB 선택</span>
+            </div>
+            <div class="step-connector" id="connector-1"></div>
+            <div class="step-item pending" id="step-indicator-2">
+                <div class="step-number">2</div>
+                <span>연결 정보</span>
+            </div>
+            <div class="step-connector" id="connector-2"></div>
+            <div class="step-item pending" id="step-indicator-3">
+                <div class="step-number">3</div>
+                <span>백업 설정</span>
+            </div>
+        </div>
+
+        <!-- 마법사 카드 -->
+        <div class="card shadow-lg">
+            <div class="card-body p-4">
+                
+                <!-- 1단계: DB 타입 선택 -->
+                <div class="wizard-step active" id="step-1">
+                    <div class="text-center mb-4">
+                        <h3>🗄️ 데이터베이스 타입을 선택하세요</h3>
+                        <p class="text-muted">백업하려는 데이터베이스의 종류를 선택해주세요. 각 DB별로 최적화된 설정을 제공합니다.</p>
+                    </div>
+
+                    <div class="row g-4">
+                        <!-- PostgreSQL -->
+                        <div class="col-12 col-md-4">
+                            <div class="card db-type-card h-100 position-relative" data-db-type="postgresql">
+                                <div class="recommendation-badge">추천</div>
+                                <div class="card-body text-center">
+                                    <div class="display-1 mb-3">🐘</div>
+                                    <h5 class="card-title">PostgreSQL</h5>
+                                    <p class="card-text text-muted">고성능 오픈소스 관계형 데이터베이스</p>
+                                    <ul class="feature-list text-start">
+                                        <li><i class="fas fa-check"></i> 뛰어난 확장성</li>
+                                        <li><i class="fas fa-check"></i> 고급 SQL 기능</li>
+                                        <li><i class="fas fa-check"></i> 우수한 압축률</li>
+                                        <li><i class="fas fa-check"></i> 병렬 백업 지원</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MySQL -->
+                        <div class="col-12 col-md-4">
+                            <div class="card db-type-card h-100" data-db-type="mysql">
+                                <div class="card-body text-center">
+                                    <div class="display-1 mb-3">🐬</div>
+                                    <h5 class="card-title">MySQL</h5>
+                                    <p class="card-text text-muted">세계에서 가장 인기 있는 오픈소스 DB</p>
+                                    <ul class="feature-list text-start">
+                                        <li><i class="fas fa-check"></i> 빠른 성능</li>
+                                        <li><i class="fas fa-check"></i> 쉬운 관리</li>
+                                        <li><i class="fas fa-check"></i> 광범위한 지원</li>
+                                        <li><i class="fas fa-check"></i> 안정적인 백업</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SQLite -->
+                        <div class="col-12 col-md-4">
+                            <div class="card db-type-card h-100" data-db-type="sqlite">
+                                <div class="card-body text-center">
+                                    <div class="display-1 mb-3">📄</div>
+                                    <h5 class="card-title">SQLite</h5>
+                                    <p class="card-text text-muted">경량 파일 기반 데이터베이스</p>
+                                    <ul class="feature-list text-start">
+                                        <li><i class="fas fa-check"></i> 설정 불필요</li>
+                                        <li><i class="fas fa-check"></i> 초고속 백업</li>
+                                        <li><i class="fas fa-check"></i> 단일 파일</li>
+                                        <li><i class="fas fa-check"></i> 개발/테스트 최적</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info mt-4">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>💡 선택 가이드:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li><strong>PostgreSQL</strong>: 대용량 데이터, 복잡한 쿼리, 높은 동시성이 필요한 경우</li>
+                            <li><strong>MySQL</strong>: 웹 애플리케이션, 빠른 읽기 성능이 중요한 경우</li>
+                            <li><strong>SQLite</strong>: 소규모 애플리케이션, 개발/테스트 환경, 임베디드 시스템</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 2단계: 연결 정보 -->
+                <div class="wizard-step" id="step-2">
+                    <div class="text-center mb-4">
+                        <h3 id="step2-title">🔗 데이터베이스 연결 정보를 입력하세요</h3>
+                        <p class="text-muted" id="step2-description">선택한 데이터베이스에 연결하기 위한 정보를 입력해주세요.</p>
+                    </div>
+
+                    <form id="connection-form">
+                        <div class="row g-3">
+                            <!-- 표시 이름 -->
+                            <div class="col-12">
+                                <label for="display-name" class="form-label">
+                                    <i class="fas fa-tag me-1"></i>표시 이름 *
+                                </label>
+                                <input type="text" class="form-control" id="display-name" 
+                                       placeholder="예: 프로덕션 DB, 개발 서버 등" required>
+                                <div class="form-text">대시보드에서 이 이름으로 표시됩니다.</div>
+                            </div>
+
+                            <!-- 호스트 -->
+                            <div class="col-12 col-md-8" id="host-field">
+                                <label for="host" class="form-label">
+                                    <i class="fas fa-server me-1"></i>호스트 *
+                                </label>
+                                <input type="text" class="form-control" id="host" 
+                                       placeholder="localhost" required>
+                                <div class="form-text" id="host-help">데이터베이스 서버의 IP 주소 또는 도메인명</div>
+                            </div>
+
+                            <!-- 포트 -->
+                            <div class="col-12 col-md-4" id="port-field">
+                                <label for="port" class="form-label">
+                                    <i class="fas fa-plug me-1"></i>포트 *
+                                </label>
+                                <input type="number" class="form-control" id="port" 
+                                       placeholder="5432" required>
+                                <div class="form-text" id="port-help">기본 포트: 5432</div>
+                            </div>
+
+                            <!-- 데이터베이스명 -->
+                            <div class="col-12 col-md-6" id="database-field">
+                                <label for="database" class="form-label">
+                                    <i class="fas fa-database me-1"></i>데이터베이스명 *
+                                </label>
+                                <input type="text" class="form-control" id="database" 
+                                       placeholder="myapp" required>
+                                <div class="form-text">백업할 데이터베이스의 이름</div>
+                            </div>
+
+                            <!-- 환경 -->
+                            <div class="col-12 col-md-6">
+                                <label for="environment" class="form-label">
+                                    <i class="fas fa-cogs me-1"></i>환경
+                                </label>
+                                <select class="form-select" id="environment">
+                                    <option value="production">프로덕션 (Production)</option>
+                                    <option value="staging">스테이징 (Staging)</option>
+                                    <option value="development" selected>개발 (Development)</option>
+                                    <option value="testing">테스트 (Testing)</option>
+                                </select>
+                            </div>
+
+                            <!-- 사용자명 -->
+                            <div class="col-12 col-md-6">
+                                <label for="username" class="form-label">
+                                    <i class="fas fa-user me-1"></i>사용자명 *
+                                </label>
+                                <input type="text" class="form-control" id="username" 
+                                       placeholder="postgres" required>
+                            </div>
+
+                            <!-- 비밀번호 -->
+                            <div class="col-12 col-md-6">
+                                <label for="password" class="form-label">
+                                    <i class="fas fa-lock me-1"></i>비밀번호 *
+                                </label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="password" 
+                                           placeholder="••••••••" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="toggle-password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 연결 테스트 -->
+                        <div class="mt-4">
+                            <button type="button" class="btn btn-outline-primary" id="test-connection">
+                                <i class="fas fa-plug me-1"></i>연결 테스트
+                            </button>
+                            <div id="connection-result" class="mt-2"></div>
+                        </div>
+
+                        <!-- 권장 설정 -->
+                        <div class="alert alert-success mt-4" id="recommended-settings">
+                            <h6><i class="fas fa-magic me-1"></i>권장 설정이 적용되었습니다!</h6>
+                            <ul class="mb-0" id="recommended-list">
+                                <!-- 동적으로 채워짐 -->
+                            </ul>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 3단계: 백업 설정 -->
+                <div class="wizard-step" id="step-3">
+                    <div class="text-center mb-4">
+                        <h3>⚙️ 백업 설정을 구성하세요</h3>
+                        <p class="text-muted">데이터베이스에 최적화된 백업 설정을 확인하고 조정하세요.</p>
+                    </div>
+
+                    <form id="backup-form">
+                        <div class="row g-4">
+                            <!-- 백업 주기 -->
+                            <div class="col-12 col-md-6">
+                                <label for="backup-schedule" class="form-label">
+                                    <i class="fas fa-clock me-1"></i>백업 주기
+                                </label>
+                                <select class="form-select" id="backup-schedule">
+                                    <option value="daily" selected>매일 (Daily)</option>
+                                    <option value="weekly">매주 (Weekly)</option>
+                                    <option value="monthly">매월 (Monthly)</option>
+                                    <option value="manual">수동 (Manual)</option>
+                                </select>
+                                <div class="form-text">프로덕션 환경에서는 매일 백업을 권장합니다.</div>
+                            </div>
+
+                            <!-- 백업 시간 -->
+                            <div class="col-12 col-md-6">
+                                <label for="backup-time" class="form-label">
+                                    <i class="fas fa-clock me-1"></i>백업 시간
+                                </label>
+                                <input type="time" class="form-select" id="backup-time" value="02:00">
+                                <div class="form-text">서버 부하가 적은 새벽 시간을 권장합니다.</div>
+                            </div>
+
+                            <!-- 압축 알고리즘 -->
+                            <div class="col-12 col-md-6">
+                                <label for="compression" class="form-label">
+                                    <i class="fas fa-compress me-1"></i>압축 알고리즘
+                                </label>
+                                <select class="form-select" id="compression">
+                                    <option value="gzip" selected>gzip (기본)</option>
+                                    <option value="zstd">zstd (고성능)</option>
+                                    <option value="lz4">lz4 (고속)</option>
+                                    <option value="none">압축 안함</option>
+                                </select>
+                                <div class="form-text" id="compression-help">gzip은 호환성이 좋고 안정적입니다.</div>
+                            </div>
+
+                            <!-- 보관 기간 -->
+                            <div class="col-12 col-md-6">
+                                <label for="retention" class="form-label">
+                                    <i class="fas fa-calendar me-1"></i>보관 기간
+                                </label>
+                                <select class="form-select" id="retention">
+                                    <option value="7">7일</option>
+                                    <option value="30" selected>30일</option>
+                                    <option value="90">90일</option>
+                                    <option value="365">1년</option>
+                                    <option value="0">무제한</option>
+                                </select>
+                                <div class="form-text">오래된 백업 파일을 자동으로 삭제합니다.</div>
+                            </div>
+
+                            <!-- 우선순위 -->
+                            <div class="col-12 col-md-6">
+                                <label for="priority" class="form-label">
+                                    <i class="fas fa-star me-1"></i>우선순위
+                                </label>
+                                <select class="form-select" id="priority">
+                                    <option value="1">높음 (High)</option>
+                                    <option value="2" selected>보통 (Medium)</option>
+                                    <option value="3">낮음 (Low)</option>
+                                </select>
+                                <div class="form-text">백업 실행 순서를 결정합니다.</div>
+                            </div>
+
+                            <!-- 첫 백업 실행 -->
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">
+                                    <i class="fas fa-play me-1"></i>첫 번째 백업
+                                </label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="run-first-backup" checked>
+                                    <label class="form-check-label" for="run-first-backup">
+                                        설정 완료 후 즉시 첫 번째 백업 실행
+                                    </label>
+                                </div>
+                                <div class="form-text">설정이 올바른지 즉시 확인할 수 있습니다.</div>
+                            </div>
+                        </div>
+
+                        <!-- 백업 설정 요약 -->
+                        <div class="card bg-light mt-4">
+                            <div class="card-header">
+                                <h6 class="mb-0"><i class="fas fa-list me-1"></i>설정 요약</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3" id="settings-summary">
+                                    <!-- 동적으로 채워짐 -->
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 완료 단계 -->
+                <div class="wizard-step" id="step-complete">
+                    <div class="text-center">
+                        <div class="display-1 text-success mb-3">🎉</div>
+                        <h3 class="text-success mb-3">설정이 완료되었습니다!</h3>
+                        <p class="lead text-muted mb-4">첫 번째 데이터베이스가 성공적으로 등록되었습니다.</p>
+                        
+                        <div class="card bg-success bg-opacity-10 border-success mb-4">
+                            <div class="card-body">
+                                <h6 class="text-success"><i class="fas fa-check-circle me-1"></i>등록된 데이터베이스</h6>
+                                <div id="final-summary" class="mt-3">
+                                    <!-- 동적으로 채워짐 -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="first-backup-status" class="mb-4">
+                            <!-- 첫 백업 상태가 여기에 표시됨 -->
+                        </div>
+
+                        <div class="d-flex gap-3 justify-content-center">
+                            <a href="/databases" class="btn btn-primary">
+                                <i class="fas fa-list me-1"></i>데이터베이스 관리
+                            </a>
+                            <a href="/dashboard" class="btn btn-outline-primary">
+                                <i class="fas fa-tachometer-alt me-1"></i>대시보드
+                            </a>
+                            <button class="btn btn-outline-success" onclick="location.reload()">
+                                <i class="fas fa-plus me-1"></i>다른 DB 추가
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 마법사 네비게이션 -->
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between align-items-center">
+                    <button class="btn btn-outline-secondary" id="prev-btn" disabled>
+                        <i class="fas fa-arrow-left me-1"></i>이전
+                    </button>
+                    
+                    <div class="text-muted">
+                        <span id="current-step">1</span> / 3 단계
+                    </div>
+                    
+                    <button class="btn btn-primary" id="next-btn">
+                        다음 <i class="fas fa-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 도움말 섹션 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-question-circle me-1"></i>도움이 필요하신가요?</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <h6><i class="fas fa-book me-1"></i>문서</h6>
+                        <p class="small text-muted">자세한 설정 가이드와 FAQ를 확인하세요.</p>
+                        <a href="/docs" class="btn btn-sm btn-outline-primary">문서 보기</a>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <h6><i class="fas fa-video me-1"></i>튜토리얼</h6>
+                        <p class="small text-muted">동영상으로 단계별 설정 방법을 학습하세요.</p>
+                        <a href="/tutorials" class="btn btn-sm btn-outline-primary">튜토리얼</a>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <h6><i class="fas fa-headset me-1"></i>지원</h6>
+                        <p class="small text-muted">문제가 있으시면 언제든 문의하세요.</p>
+                        <a href="/support" class="btn btn-sm btn-outline-primary">지원 요청</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- 마법사 스크립트 -->
+    <script src="/static/js/database_wizard.js"></script>
+</body>
+</html>
