@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>설정 템플릿 관리 - LocalBackUpManager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .template-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .template-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        .template-card.selected {
+            border-color: #0d6efd;
+            background-color: rgba(13, 110, 253, 0.05);
+        }
+        
+        .db-type-badge {
+            font-size: 1.2rem;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+        }
+        
+        .template-actions {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .template-card:hover .template-actions {
+            opacity: 1;
+        }
+        
+        .template-preview {
+            background-color: #f8f9fa;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- 네비게이션 바 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-database me-2"></i>LocalBackUpManager
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/databases">
+                    <i class="fas fa-arrow-left me-1"></i>데이터베이스 관리로 돌아가기
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-4">
+        <!-- 헤더 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="display-6 mb-2">
+                    <i class="fas fa-copy me-2 text-primary"></i>설정 템플릿 관리
+                </h1>
+                <p class="lead text-muted">데이터베이스 설정을 템플릿으로 저장하고 재사용하세요</p>
+            </div>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createTemplateModal">
+                <i class="fas fa-plus me-1"></i>새 템플릿 만들기
+            </button>
+        </div>
+
+        <!-- 템플릿 목록 -->
+        <div class="row g-4" id="template-list">
+            <!-- 템플릿 카드들이 여기에 동적으로 추가됨 -->
+            <div class="col-12 text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">로딩 중...</span>
+                </div>
+                <div class="mt-3 text-muted">템플릿을 불러오는 중...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 새 템플릿 생성 모달 -->
+    <div class="modal fade" id="createTemplateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-plus me-2"></i>새 템플릿 만들기
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createTemplateForm">
+                        <div class="row g-3">
+                            <!-- 템플릿 기본 정보 -->
+                            <div class="col-12">
+                                <h6 class="fw-bold text-primary">📋 템플릿 정보</h6>
+                                <hr>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">템플릿 이름 *</label>
+                                <input type="text" class="form-control" id="template-name" required 
+                                       placeholder="예: PostgreSQL 프로덕션 템플릿">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">설명</label>
+                                <input type="text" class="form-control" id="template-description" 
+                                       placeholder="예: 프로덕션 환경용 PostgreSQL 설정">
+                            </div>
+
+                            <!-- 소스 선택 -->
+                            <div class="col-12">
+                                <h6 class="fw-bold text-success mt-3">🔧 설정 소스</h6>
+                                <hr>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="source-type" id="source-existing" value="existing" checked>
+                                    <label class="form-check-label" for="source-existing">
+                                        기존 데이터베이스에서 복사
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="source-type" id="source-manual" value="manual">
+                                    <label class="form-check-label" for="source-manual">
+                                        수동으로 설정
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 기존 DB 선택 -->
+                            <div class="col-12" id="existing-db-section">
+                                <label class="form-label">복사할 데이터베이스 *</label>
+                                <select class="form-select" id="source-database">
+                                    <option value="">데이터베이스를 선택하세요</option>
+                                </select>
+                                <div class="form-text">선택한 데이터베이스의 설정이 템플릿으로 복사됩니다.</div>
+                            </div>
+
+                            <!-- 수동 설정 -->
+                            <div class="col-12" id="manual-config-section" style="display: none;">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">DB 타입 *</label>
+                                        <select class="form-select" id="manual-db-type">
+                                            <option value="">선택하세요</option>
+                                            <option value="postgresql">🐘 PostgreSQL</option>
+                                            <option value="mysql">🐬 MySQL</option>
+                                            <option value="sqlite">📄 SQLite</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">환경</label>
+                                        <select class="form-select" id="manual-environment">
+                                            <option value="production">프로덕션</option>
+                                            <option value="staging">스테이징</option>
+                                            <option value="development">개발</option>
+                                            <option value="testing">테스트</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">우선순위</label>
+                                        <select class="form-select" id="manual-priority">
+                                            <option value="1">높음</option>
+                                            <option value="2">보통</option>
+                                            <option value="3">낮음</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 템플릿 옵션 -->
+                            <div class="col-12">
+                                <h6 class="fw-bold text-warning mt-3">⚙️ 템플릿 옵션</h6>
+                                <hr>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="include-credentials">
+                                    <label class="form-check-label" for="include-credentials">
+                                        인증 정보 포함 (사용자명/비밀번호)
+                                    </label>
+                                    <div class="form-text text-warning">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        보안상 권장하지 않습니다.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="include-backup-settings" checked>
+                                    <label class="form-check-label" for="include-backup-settings">
+                                        백업 설정 포함
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="set-as-default">
+                                    <label class="form-check-label" for="set-as-default">
+                                        기본 템플릿으로 설정
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-success" id="btn-create-template">
+                        <i class="fas fa-save me-1"></i>템플릿 생성
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 템플릿 편집 모달 -->
+    <div class="modal fade" id="editTemplateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i>템플릿 편집
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editTemplateForm">
+                        <input type="hidden" id="edit-template-id">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">템플릿 이름 *</label>
+                                <input type="text" class="form-control" id="edit-template-name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">설명</label>
+                                <input type="text" class="form-control" id="edit-template-description">
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="edit-set-as-default">
+                                    <label class="form-check-label" for="edit-set-as-default">
+                                        기본 템플릿으로 설정
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-primary" id="btn-update-template">
+                        <i class="fas fa-save me-1"></i>저장
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 템플릿 미리보기 모달 -->
+    <div class="modal fade" id="previewTemplateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-eye me-2"></i>템플릿 미리보기
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="template-preview-content">
+                        <!-- 템플릿 내용이 여기에 표시됨 -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    <button type="button" class="btn btn-primary" id="btn-use-template">
+                        <i class="fas fa-check me-1"></i>이 템플릿 사용
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- 데이터베이스 공통 유틸리티 -->
+    <script src="/static/js/database_utils.js"></script>
+    <!-- 템플릿 관리 스크립트 -->
+    <script src="/static/js/database_templates.js"></script>
+</body>
+</html>
