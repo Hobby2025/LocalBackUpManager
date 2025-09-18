@@ -8,6 +8,9 @@
   // 상태 표시 엘리먼트 참조
   const elSystemStatus = document.getElementById("system-status");
   const elSystemTimestamp = document.getElementById("system-timestamp");
+  const postgresqlDatabases = document.getElementById("postgresql-databases");
+  const mysqlDatabases = document.getElementById("mysql-databases");
+  const sqliteDatabases = document.getElementById("sqlite-databases");
   const elTotalDatabases = document.getElementById("total-databases");
   const elRecentBackups = document.getElementById("recent-backups");
   const elFailedBackups = document.getElementById("failed-backups");
@@ -32,9 +35,27 @@
   const elCompLz4 = document.getElementById("comp-lz4");
   // 헤더 드롭다운: DB SSL 기본 모드 선택 요소
   const selectDbSslMode = document.getElementById("select-db-ssl-mode");
+  
+  // 백업 진행 상황 추적 요소들
+  const btnRefreshBackupProgress = document.getElementById("btn-refresh-backup-progress");
+  const btnStartBackup = document.getElementById("btn-start-backup");
+  const backupAutoRefreshToggle = document.getElementById("backup-auto-refresh-toggle");
+  const backupProgressTimestamp = document.getElementById("backup-progress-timestamp");
+  const activeBackupsCount = document.getElementById("active-backups-count");
+  const completedBackupsCount = document.getElementById("completed-backups-count");
+  const activeBackupsList = document.getElementById("active-backups-list");
+  const completedBackupsList = document.getElementById("completed-backups-list");
+  
+  // 백업 로그 스트리밍 요소들
+  const logStreamingToggle = document.getElementById("log-streaming-toggle");
+  const btnClearLogs = document.getElementById("btn-clear-logs");
+  const btnDownloadLogs = document.getElementById("btn-download-logs");
+  const backupLogsContainer = document.getElementById("backup-logs-container");
 
   let backupsChart;
   let averagesChart;
+  let backupProgressRefreshInterval;
+  let logStreamingInterval;
 
   // 유틸: 텍스트 설정
   function setText(el, text) {
@@ -791,4 +812,585 @@
           elReportResult.textContent = e.message || "보고서 생성 실패";
       }
     });
+
+  // 백업 진행 상황 추적 함수들
+  
+  // 백업 진행 상황 데이터 가져오기
+  async function loadBackupProgress() {
+    try {
+      // 진행 중인 백업 조회 (임시로 최근 백업 중 running 상태인 것들)
+      const activeResponse = await fetch('/api/backups?status=running&limit=10');
+      let activeBackups = [];
+      
+      if (activeResponse.ok) {
+        const activeData = await activeResponse.json();
+        activeBackups = activeData.backups || [];
+      }
+      
+      // 최근 완료된 백업 조회
+      const completedResponse = await fetch('/api/backups?status=completed&limit=5&sort=created_at&order=desc');
+      let completedBackups = [];
+      
+      if (completedResponse.ok) {
+        const completedData = await completedResponse.json();
+        completedBackups = completedData.backups || [];
+      }
+      
+      // 진행 중인 백업 렌더링
+      renderActiveBackups(activeBackups);
+      
+      // 완료된 백업 렌더링
+      renderCompletedBackups(completedBackups);
+      
+      // 카운트 업데이트
+      setText(activeBackupsCount, activeBackups.length);
+      setText(completedBackupsCount, completedBackups.length);
+      
+      // 타임스탬프 업데이트
+      setText(backupProgressTimestamp, new Date().toLocaleString('ko-KR'));
+      
+    } catch (error) {
+      console.error('백업 진행 상황 로드 오류:', error);
+      showBackupProgressError();
+    }
+  }
+
+  // 진행 중인 백업 렌더링
+  function renderActiveBackups(backups) {
+    if (!activeBackupsList) return;
+    
+    if (backups.length === 0) {
+      activeBackupsList.innerHTML = `
+        <div class="text-center text-muted py-3">
+          <div class="mb-2">😴</div>
+          <div>현재 진행 중인 백업이 없습니다.</div>
+          <button class="btn btn-sm btn-outline-success mt-2" onclick="startBackup()">
+            <i class="fas fa-play"></i> 백업 시작
+          </button>
+        </div>
+      `;
+      return;
+    }
+    
+    let html = '';
+    backups.forEach(backup => {
+      const progress = calculateProgress(backup);
+      const eta = calculateETA(backup);
+      const dbTypeIcon = getDbTypeIcon(backup.database?.db_type);
+      
+      html += `
+        <div class="card mb-3 border-primary">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div class="d-flex align-items-center">
+                <div class="me-2" style="font-size: 1.2rem;">${dbTypeIcon}</div>
+                <div>
+                  <h6 class="card-title mb-1">${escapeHtml(backup.database?.display_name || backup.database?.name || 'Unknown DB')}</h6>
+                  <small class="text-muted">${escapeHtml(backup.database?.host)}:${backup.database?.port}</small>
+                </div>
+              </div>
+              <div class="text-end">
+                <span class="badge bg-primary">
+                  <i class="fas fa-spinner fa-spin"></i> 진행 중
+                </span>
+              </div>
+            </div>
+            
+            <!-- 진행률 바 -->
+            <div class="mb-2">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <small class="text-muted">진행률</small>
+                <small class="fw-semibold">${progress.percentage}%</small>
+              </div>
+              <div class="progress" style="height: 8px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                     role="progressbar" 
+                     style="width: ${progress.percentage}%">
+                </div>
+              </div>
+            </div>
+            
+            <div class="row g-2 small">
+              <div class="col-6">
+                <div class="text-muted">시작 시간</div>
+                <div class="fw-semibold">${formatTime(backup.started_at)}</div>
+              </div>
+              <div class="col-6">
+                <div class="text-muted">예상 완료</div>
+                <div class="fw-semibold">${eta}</div>
+              </div>
+            </div>
+            
+            <div class="row g-2 small mt-2">
+              <div class="col-6">
+                <div class="text-muted">백업 타입</div>
+                <span class="badge bg-outline-info">${backup.backup_type || 'full'}</span>
+              </div>
+              <div class="col-6">
+                <div class="text-muted">압축</div>
+                <span class="badge bg-outline-secondary">${backup.compression_algorithm || 'gzip'}</span>
+              </div>
+            </div>
+            
+            <div class="mt-2">
+              <button class="btn btn-sm btn-outline-danger me-1" onclick="cancelBackup('${backup.id}')">
+                <i class="fas fa-stop"></i> 중단
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="viewBackupDetails('${backup.id}')">
+                <i class="fas fa-info-circle"></i> 상세보기
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    activeBackupsList.innerHTML = html;
+  }
+
+  // 완료된 백업 렌더링
+  function renderCompletedBackups(backups) {
+    if (!completedBackupsList) return;
+    
+    if (backups.length === 0) {
+      completedBackupsList.innerHTML = `
+        <div class="text-center text-muted py-3">
+          <div class="mb-2">📋</div>
+          <div>최근 완료된 백업이 없습니다.</div>
+        </div>
+      `;
+      return;
+    }
+    
+    let html = '';
+    backups.forEach(backup => {
+      const dbTypeIcon = getDbTypeIcon(backup.database?.db_type);
+      const statusBadge = getBackupStatusBadge(backup.status);
+      const duration = calculateDuration(backup.started_at, backup.completed_at);
+      
+      html += `
+        <div class="card mb-2 border-0 shadow-sm">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div class="d-flex align-items-center">
+                <div class="me-2" style="font-size: 1.2rem;">${dbTypeIcon}</div>
+                <div>
+                  <h6 class="card-title mb-1">${escapeHtml(backup.database?.display_name || backup.database?.name || 'Unknown DB')}</h6>
+                  <small class="text-muted">${formatTime(backup.completed_at)}</small>
+                </div>
+              </div>
+              <div class="text-end">
+                ${statusBadge}
+              </div>
+            </div>
+            
+            <div class="row g-2 small">
+              <div class="col-4">
+                <div class="text-muted">소요 시간</div>
+                <div class="fw-semibold">${duration}</div>
+              </div>
+              <div class="col-4">
+                <div class="text-muted">파일 크기</div>
+                <div class="fw-semibold">${humanSize(backup.file_size)}</div>
+              </div>
+              <div class="col-4">
+                <div class="text-muted">압축률</div>
+                <div class="fw-semibold">${backup.compression_ratio ? (backup.compression_ratio * 100).toFixed(1) + '%' : '-'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    completedBackupsList.innerHTML = html;
+  }
+
+  // 백업 진행 상황 오류 표시
+  function showBackupProgressError() {
+    if (activeBackupsList) {
+      activeBackupsList.innerHTML = `
+        <div class="text-center text-danger py-3">
+          <div class="mb-2">⚠️</div>
+          <div>백업 상태 로드 중 오류가 발생했습니다.</div>
+          <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadBackupProgress()">
+            다시 시도
+          </button>
+        </div>
+      `;
+    }
+    
+    if (completedBackupsList) {
+      completedBackupsList.innerHTML = `
+        <div class="text-center text-danger py-3">
+          <div class="mb-2">⚠️</div>
+          <div>완료된 백업 로드 중 오류가 발생했습니다.</div>
+        </div>
+      `;
+    }
+  }
+
+  // 유틸리티 함수들
+  
+  // DB 타입 아이콘 가져오기
+  function getDbTypeIcon(dbType) {
+    const iconMap = {
+      'postgresql': '🐘',
+      'mysql': '🐬',
+      'sqlite': '📄'
+    };
+    return iconMap[dbType] || '🗄️';
+  }
+
+  // 백업 상태 배지 생성
+  function getBackupStatusBadge(status) {
+    const statusMap = {
+      'completed': { class: 'bg-success', text: '완료', icon: '✅' },
+      'failed': { class: 'bg-danger', text: '실패', icon: '❌' },
+      'running': { class: 'bg-primary', text: '진행 중', icon: '🔄' },
+      'cancelled': { class: 'bg-warning', text: '취소됨', icon: '⏹️' }
+    };
+    const config = statusMap[status] || statusMap['completed'];
+    return `<span class="badge ${config.class}">${config.icon} ${config.text}</span>`;
+  }
+
+  // 진행률 계산 (임시 구현)
+  function calculateProgress(backup) {
+    if (!backup.started_at) return { percentage: 0 };
+    
+    const startTime = new Date(backup.started_at);
+    const now = new Date();
+    const elapsed = now - startTime;
+    
+    // 임시로 5분을 100%로 가정하여 진행률 계산
+    const estimatedDuration = 5 * 60 * 1000; // 5분
+    const percentage = Math.min(Math.round((elapsed / estimatedDuration) * 100), 95);
+    
+    return { percentage };
+  }
+
+  // 예상 완료 시간 계산
+  function calculateETA(backup) {
+    if (!backup.started_at) return '-';
+    
+    const startTime = new Date(backup.started_at);
+    const now = new Date();
+    const elapsed = now - startTime;
+    
+    // 임시로 5분 소요 예상
+    const estimatedDuration = 5 * 60 * 1000; // 5분
+    const remaining = Math.max(0, estimatedDuration - elapsed);
+    
+    if (remaining === 0) return '곧 완료';
+    
+    const minutes = Math.ceil(remaining / (60 * 1000));
+    return `약 ${minutes}분 후`;
+  }
+
+  // 소요 시간 계산
+  function calculateDuration(startTime, endTime) {
+    if (!startTime || !endTime) return '-';
+    
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const duration = end - start;
+    
+    const seconds = Math.floor(duration / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+      return `${hours}시간 ${minutes % 60}분`;
+    } else if (minutes > 0) {
+      return `${minutes}분 ${seconds % 60}초`;
+    } else {
+      return `${seconds}초`;
+    }
+  }
+
+  // 백업 로그 스트리밍 함수들
+  
+  // 로그 스트리밍 시작/중지
+  function toggleLogStreaming() {
+    if (logStreamingToggle && logStreamingToggle.checked) {
+      startLogStreaming();
+    } else {
+      stopLogStreaming();
+    }
+  }
+
+  // 로그 스트리밍 시작
+  function startLogStreaming() {
+    if (logStreamingInterval) return;
+    
+    if (backupLogsContainer) {
+      backupLogsContainer.innerHTML = `
+        <div class="text-success">
+          <i class="fas fa-play"></i> 로그 스트리밍이 시작되었습니다...
+        </div>
+      `;
+    }
+    
+    // 5초마다 로그 업데이트
+    logStreamingInterval = setInterval(fetchBackupLogs, 5000);
+    fetchBackupLogs(); // 즉시 한 번 실행
+  }
+
+  // 로그 스트리밍 중지
+  function stopLogStreaming() {
+    if (logStreamingInterval) {
+      clearInterval(logStreamingInterval);
+      logStreamingInterval = null;
+    }
+    
+    if (backupLogsContainer) {
+      backupLogsContainer.innerHTML = `
+        <div class="text-muted text-center py-5">
+          로그 스트리밍이 비활성화되어 있습니다.<br>
+          <small>위의 토글을 활성화하면 실시간 백업 로그를 볼 수 있습니다.</small>
+        </div>
+      `;
+    }
+  }
+
+  // 백업 로그 가져오기
+  async function fetchBackupLogs() {
+    try {
+      const response = await fetch('/api/backups/logs/recent?limit=50');
+      if (!response.ok) throw new Error('로그 조회 실패');
+      
+      const data = await response.json();
+      const logs = data.logs || [];
+      
+      if (backupLogsContainer) {
+        let html = '';
+        logs.forEach(log => {
+          const timestamp = new Date(log.timestamp).toLocaleString('ko-KR');
+          const levelClass = getLogLevelClass(log.level);
+          html += `
+            <div class="log-entry mb-1">
+              <span class="text-muted small">[${timestamp}]</span>
+              <span class="badge ${levelClass} me-1">${log.level}</span>
+              <span>${escapeHtml(log.message)}</span>
+            </div>
+          `;
+        });
+        
+        if (html) {
+          backupLogsContainer.innerHTML = html;
+          // 자동 스크롤 (최신 로그가 보이도록)
+          backupLogsContainer.scrollTop = backupLogsContainer.scrollHeight;
+        } else {
+          backupLogsContainer.innerHTML = `
+            <div class="text-muted text-center py-3">
+              최근 백업 로그가 없습니다.
+            </div>
+          `;
+        }
+      }
+    } catch (error) {
+      console.error('백업 로그 조회 오류:', error);
+      if (backupLogsContainer) {
+        backupLogsContainer.innerHTML = `
+          <div class="text-danger text-center py-3">
+            <i class="fas fa-exclamation-triangle"></i> 로그 조회 중 오류가 발생했습니다.
+          </div>
+        `;
+      }
+    }
+  }
+
+  // 로그 레벨에 따른 CSS 클래스
+  function getLogLevelClass(level) {
+    const levelMap = {
+      'ERROR': 'bg-danger',
+      'WARN': 'bg-warning',
+      'INFO': 'bg-info',
+      'DEBUG': 'bg-secondary'
+    };
+    return levelMap[level] || 'bg-secondary';
+  }
+
+  // 로그 지우기
+  function clearLogs() {
+    if (backupLogsContainer) {
+      backupLogsContainer.innerHTML = `
+        <div class="text-muted text-center py-3">
+          로그가 지워졌습니다.
+        </div>
+      `;
+    }
+  }
+
+  // 로그 다운로드
+  function downloadLogs() {
+    const logs = backupLogsContainer ? backupLogsContainer.textContent : '';
+    const blob = new Blob([logs], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backup-logs-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // 전역 함수들 (HTML에서 호출)
+  
+  // 백업 시작
+  window.startBackup = async function() {
+    try {
+      if (window.Swal) {
+        const result = await window.Swal.fire({
+          title: '백업 시작',
+          text: '모든 활성 데이터베이스의 백업을 시작하시겠습니까?',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: '시작',
+          cancelButtonText: '취소'
+        });
+        
+        if (!result.isConfirmed) return;
+      }
+      
+      const response = await fetch('/api/backups/start-all', {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (window.Swal) {
+          window.Swal.fire({
+            icon: 'success',
+            title: '백업 시작됨',
+            text: `${data.started_count || 0}개의 백업이 시작되었습니다.`,
+            timer: 3000
+          });
+        }
+        
+        // 진행 상황 새로고침
+        setTimeout(loadBackupProgress, 1000);
+      } else {
+        throw new Error('백업 시작 실패');
+      }
+    } catch (error) {
+      console.error('백업 시작 오류:', error);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: '백업 시작 실패',
+          text: error.message
+        });
+      }
+    }
+  };
+
+  // 백업 취소
+  window.cancelBackup = async function(backupId) {
+    try {
+      if (window.Swal) {
+        const result = await window.Swal.fire({
+          title: '백업 중단',
+          text: '진행 중인 백업을 중단하시겠습니까?',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: '중단',
+          cancelButtonText: '계속'
+        });
+        
+        if (!result.isConfirmed) return;
+      }
+      
+      const response = await fetch(`/api/backups/${backupId}/cancel`, {
+        method: 'POST'
+      });
+      
+      if (response.ok) {
+        if (window.Swal) {
+          window.Swal.fire({
+            icon: 'success',
+            title: '백업 중단됨',
+            text: '백업이 중단되었습니다.',
+            timer: 3000
+          });
+        }
+        
+        // 진행 상황 새로고침
+        setTimeout(loadBackupProgress, 1000);
+      } else {
+        throw new Error('백업 중단 실패');
+      }
+    } catch (error) {
+      console.error('백업 중단 오류:', error);
+      if (window.Swal) {
+        window.Swal.fire({
+          icon: 'error',
+          title: '백업 중단 실패',
+          text: error.message
+        });
+      }
+    }
+  };
+
+  // 백업 상세보기
+  window.viewBackupDetails = function(backupId) {
+    window.location.href = `/backups?highlight=${backupId}`;
+  };
+
+  // 백업 진행 상황 자동 새로고침 설정
+  function setupBackupProgressAutoRefresh() {
+    if (backupProgressRefreshInterval) {
+      clearInterval(backupProgressRefreshInterval);
+    }
+    
+    if (backupAutoRefreshToggle && backupAutoRefreshToggle.checked) {
+      backupProgressRefreshInterval = setInterval(loadBackupProgress, 10000); // 10초마다
+    }
+  }
+
+  // 이벤트 리스너 등록
+  if (btnRefreshBackupProgress) {
+    btnRefreshBackupProgress.addEventListener('click', loadBackupProgress);
+  }
+
+  if (btnStartBackup) {
+    btnStartBackup.addEventListener('click', window.startBackup);
+  }
+
+  if (backupAutoRefreshToggle) {
+    backupAutoRefreshToggle.addEventListener('change', setupBackupProgressAutoRefresh);
+  }
+
+  if (logStreamingToggle) {
+    logStreamingToggle.addEventListener('change', toggleLogStreaming);
+  }
+
+  if (btnClearLogs) {
+    btnClearLogs.addEventListener('click', clearLogs);
+  }
+
+  if (btnDownloadLogs) {
+    btnDownloadLogs.addEventListener('click', downloadLogs);
+  }
+
+  // 페이지 로드 시 백업 진행 상황 초기화
+  document.addEventListener('DOMContentLoaded', function() {
+    // 기존 초기화 후 백업 진행 상황 로드
+    setTimeout(() => {
+      loadBackupProgress();
+      setupBackupProgressAutoRefresh();
+    }, 2000);
+  });
+
+  // 페이지 언로드 시 인터벌 정리
+  window.addEventListener('beforeunload', function() {
+    if (backupProgressRefreshInterval) {
+      clearInterval(backupProgressRefreshInterval);
+    }
+    if (logStreamingInterval) {
+      clearInterval(logStreamingInterval);
+    }
+  });
+
 })();
