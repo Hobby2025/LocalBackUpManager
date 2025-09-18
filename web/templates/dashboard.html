@@ -13,6 +13,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <!-- SweetAlert2 CDN (스위트 알람) -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 공통 UI CSS -->
@@ -138,6 +140,109 @@
               <small class="text-muted"
                 >zstd/lz4가 없으면 자동으로 gzip으로 폴백합니다.</small
               >
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DB 타입별 상태 시각화 -->
+      <div class="row g-3 mt-1">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span>🗄️ DB 타입별 상태 모니터링</span>
+              <div class="d-flex gap-2">
+                <button id="btn-refresh-db-status" class="btn btn-sm btn-outline-primary">
+                  <i class="fas fa-sync-alt"></i> 새로고침
+                </button>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="auto-refresh-toggle" checked>
+                  <label class="form-check-label" for="auto-refresh-toggle">자동 새로고침</label>
+                </div>
+              </div>
+            </div>
+            <div class="card-body">
+              <!-- DB 타입별 그룹 -->
+              <div id="db-type-groups" class="row g-3">
+                <!-- PostgreSQL 그룹 -->
+                <div class="col-12 col-lg-6">
+                  <div class="border rounded p-3 h-100" style="border-color: #336791 !important;">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="me-3" style="font-size: 2rem;">🐘</div>
+                      <div>
+                        <h5 class="mb-1" style="color: #336791;">PostgreSQL</h5>
+                        <small class="text-muted">관계형 데이터베이스</small>
+                      </div>
+                      <div class="ms-auto">
+                        <span id="postgresql-count" class="badge bg-primary">0</span>
+                      </div>
+                    </div>
+                    <div id="postgresql-databases" class="db-group-content">
+                      <div class="text-center text-muted py-3">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                          <span class="visually-hidden">로딩중...</span>
+                        </div>
+                        <div class="mt-2">데이터 로드 중...</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- MySQL 그룹 -->
+                <div class="col-12 col-lg-6">
+                  <div class="border rounded p-3 h-100" style="border-color: #00758F !important;">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="me-3" style="font-size: 2rem;">🐬</div>
+                      <div>
+                        <h5 class="mb-1" style="color: #00758F;">MySQL</h5>
+                        <small class="text-muted">관계형 데이터베이스</small>
+                      </div>
+                      <div class="ms-auto">
+                        <span id="mysql-count" class="badge bg-info">0</span>
+                      </div>
+                    </div>
+                    <div id="mysql-databases" class="db-group-content">
+                      <div class="text-center text-muted py-3">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                          <span class="visually-hidden">로딩중...</span>
+                        </div>
+                        <div class="mt-2">데이터 로드 중...</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SQLite 그룹 -->
+                <div class="col-12">
+                  <div class="border rounded p-3" style="border-color: #003B57 !important;">
+                    <div class="d-flex align-items-center mb-3">
+                      <div class="me-3" style="font-size: 2rem;">📄</div>
+                      <div>
+                        <h5 class="mb-1" style="color: #003B57;">SQLite</h5>
+                        <small class="text-muted">파일 기반 데이터베이스</small>
+                      </div>
+                      <div class="ms-auto">
+                        <span id="sqlite-count" class="badge bg-secondary">0</span>
+                      </div>
+                    </div>
+                    <div id="sqlite-databases" class="db-group-content">
+                      <div class="text-center text-muted py-3">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                          <span class="visually-hidden">로딩중...</span>
+                        </div>
+                        <div class="mt-2">데이터 로드 중...</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 마지막 업데이트 시간 -->
+              <div class="text-center mt-3">
+                <small class="text-muted">
+                  마지막 업데이트: <span id="db-status-timestamp">-</span>
+                </small>
+              </div>
             </div>
           </div>
         </div>
