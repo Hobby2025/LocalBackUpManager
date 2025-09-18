@@ -1,6 +1,7 @@
 fastapi==0.115.0
 uvicorn==0.32.0
 psycopg2-binary==2.9.10
+pymysql==1.1.1
 apscheduler==3.10.4
 cryptography==43.0.1
 pydantic==2.9.2

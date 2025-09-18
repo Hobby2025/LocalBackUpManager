@@ -1,6 +1,7 @@
 """
-다중 데이터베이스 연결/풀/상태 관리 매니저
-- psycopg2 SimpleConnectionPool 기반 연결 풀 관리
+다중 데이터베이스 연결/풀/상태 관리 매니저 (어댑터 패턴 기반)
+- PostgreSQL, MySQL, SQLite 지원
+- 어댑터 패턴으로 DB별 최적화된 연결 관리
 - 연결 테스트 기능 제공
 - 상태 요약 및 리소스 정리 지원
 
@@ -14,62 +15,31 @@ from __future__ import annotations
 
 import time
 from datetime import datetime
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-import psycopg2
-from psycopg2.pool import SimpleConnectionPool
-from app.config import get_config_manager
+from app.core.database_adapters import DatabaseAdapter, create_adapter
 
 # 내부 모델에 직접 의존하지 않도록 최소한의 인터페이스만 사용
 # app.api 계층에서 SQLAlchemy 모델(Database)을 전달받아 필요한 필드만 활용
 
 
 class DatabaseManager:
-    """다중 데이터베이스 연결/풀/상태 관리 클래스"""
+    """다중 데이터베이스 연결/풀/상태 관리 클래스 (어댑터 패턴 기반)"""
 
     def __init__(self) -> None:
-        # 데이터베이스별로 연결 풀을 관리 (key: database.id)
-        self._pools: Dict[str, SimpleConnectionPool] = {}
+        # 데이터베이스별로 어댑터를 관리 (key: database.id)
+        self._adapters: Dict[str, DatabaseAdapter] = {}
 
     # -----------------------------
     # 내부 유틸리티
     # -----------------------------
-    def _make_conn_params(self, *, host: str, port: int, dbname: str, user: str, password: Optional[str], sslmode: Optional[str]) -> Dict[str, object]:
-        """psycopg2 연결 파라미터 구성
-        - connect_timeout 기본 5초
-        - sslmode는 Database.ssl_mode 값을 그대로 전달 (없으면 settings의 security.db_ssl_mode_default 사용, 최종 폴백은 require)
-        """
-        params: Dict[str, object] = {
-            "host": host,
-            "port": int(port) if port is not None else 5432,
-            "dbname": dbname,
-            "user": user,
-            "connect_timeout": 5,
-        }
-        if password:
-            params["password"] = password
-        # sslmode가 지정되지 않았으면 설정의 기본값을 사용 (보안/레거시 환경 모두 대응)
-        params["sslmode"] = sslmode or self._get_default_ssl_mode()
-        return params
-
-    def _get_default_ssl_mode(self) -> str:
-        """설정 파일(settings.yaml)의 security.db_ssl_mode_default를 읽어 기본 sslmode 반환
-        - 허용 값: disable | prefer | require | verify-ca | verify-full
-        - 잘못된 값이거나 오류 시 'require'로 폴백
-        """
-        try:
-            cm = get_config_manager()
-            app_settings = cm.load_app_settings() or {}
-            sec = (app_settings.get('security') or {})
-            mode = str(sec.get('db_ssl_mode_default') or '').strip().lower()
-            if mode in {"disable", "prefer", "require", "verify-ca", "verify-full"}:
-                return mode
-        except Exception:
-            pass
-        return "require"
-
-    def _pool_key(self, database_id: str) -> str:
-        return str(database_id)
+    def _get_adapter(self, database_id: str, db_type: str) -> DatabaseAdapter:
+        """데이터베이스 어댑터 가져오기 (없으면 생성)"""
+        adapter = self._adapters.get(database_id)
+        if adapter is None:
+            adapter = create_adapter(db_type, database_id)
+            self._adapters[database_id] = adapter
+        return adapter
 
     # -----------------------------
     # 공개 API: 연결 풀 관리
@@ -78,6 +48,7 @@ class DatabaseManager:
         self,
         *,
         database_id: str,
+        db_type: str,
         host: str,
         port: int,
         dbname: str,
@@ -86,52 +57,49 @@ class DatabaseManager:
         sslmode: Optional[str],
         minconn: int = 1,
         maxconn: int = 5,
-    ) -> SimpleConnectionPool:
+    ) -> Any:
         """해당 데이터베이스에 대한 연결 풀을 반환 (없으면 생성)
-        - 연결 풀은 SimpleConnectionPool(minconn, maxconn, **params) 사용
+        - 어댑터 패턴으로 DB 타입별 최적화된 풀 생성
         """
-        key = self._pool_key(database_id)
-        pool = self._pools.get(key)
-        if pool is None:
-            params = self._make_conn_params(host=host, port=port, dbname=dbname, user=user, password=password, sslmode=sslmode)
-            pool = SimpleConnectionPool(minconn, maxconn, **params)
-            self._pools[key] = pool
-        return pool
+        adapter = self._get_adapter(database_id, db_type)
+        return adapter.create_pool(
+            host=host, port=port, dbname=dbname, 
+            user=user, password=password, sslmode=sslmode,
+            minconn=minconn, maxconn=maxconn
+        )
 
-    def get_connection(self, database_id: str) -> psycopg2.extensions.connection:
+    def get_connection(self, database_id: str, db_type: str) -> Any:
         """연결 풀에서 연결을 하나 가져옵니다."""
-        key = self._pool_key(database_id)
-        pool = self._pools.get(key)
-        if pool is None:
+        adapter = self._adapters.get(database_id)
+        if adapter is None:
             raise RuntimeError("연결 풀이 존재하지 않습니다. 먼저 get_or_create_pool을 호출하세요.")
-        return pool.getconn()
+        return adapter.get_connection()
 
-    def put_connection(self, database_id: str, conn: psycopg2.extensions.connection) -> None:
+    def put_connection(self, database_id: str, conn: Any) -> None:
         """연결을 연결 풀에 반환합니다."""
-        key = self._pool_key(database_id)
-        pool = self._pools.get(key)
-        if pool is None:
-            # 풀이 이미 제거된 경우 안전하게 종료만 시도
+        adapter = self._adapters.get(database_id)
+        if adapter is None:
+            # 어댑터가 이미 제거된 경우 안전하게 종료만 시도
             try:
-                conn.close()
+                if hasattr(conn, 'close'):
+                    conn.close()
             finally:
                 return
-        pool.putconn(conn)
+        adapter.put_connection(conn)
 
     def close_pool(self, database_id: str) -> None:
         """특정 데이터베이스의 연결 풀을 종료합니다."""
-        key = self._pool_key(database_id)
-        pool = self._pools.pop(key, None)
-        if pool is not None:
-            pool.closeall()
+        adapter = self._adapters.pop(database_id, None)
+        if adapter is not None:
+            adapter.close_pool()
 
     def close_all(self) -> None:
         """모든 연결 풀을 종료합니다."""
-        for key, pool in list(self._pools.items()):
+        for database_id, adapter in list(self._adapters.items()):
             try:
-                pool.closeall()
+                adapter.close_pool()
             finally:
-                self._pools.pop(key, None)
+                self._adapters.pop(database_id, None)
 
     # -----------------------------
     # 공개 API: 연결 테스트/상태
@@ -139,6 +107,7 @@ class DatabaseManager:
     def test_connection(
         self,
         *,
+        db_type: str,
         host: str,
         port: int,
         dbname: str,
@@ -147,34 +116,25 @@ class DatabaseManager:
         sslmode: Optional[str],
         timeout_seconds: int = 5,
     ) -> Tuple[bool, float, Optional[str]]:
-        """DB 연결 테스트 수행
+        """
+        DB 연결 테스트 수행 (어댑터 기반)
         반환: (성공여부, 응답시간(ms), 오류메시지)
         """
-        start = time.perf_counter()
-        try:
-            params = self._make_conn_params(host=host, port=port, dbname=dbname, user=user, password=password, sslmode=sslmode)
-            # 개별 테스트는 풀을 거치지 않고 직접 연결하여 지연/에러 측정
-            params["connect_timeout"] = timeout_seconds
-            conn = psycopg2.connect(**params)
-            try:
-                cur = conn.cursor()
-                cur.execute("SELECT 1")
-                cur.fetchone()
-                cur.close()
-            finally:
-                conn.close()
-            elapsed_ms = (time.perf_counter() - start) * 1000.0
-            return True, elapsed_ms, None
-        except Exception as e:
-            elapsed_ms = (time.perf_counter() - start) * 1000.0
-            return False, elapsed_ms, str(e)
+        # 임시 어댑터를 생성하여 테스트 수행 (풀에 저장하지 않음)
+        temp_adapter = create_adapter(db_type, "temp_test")
+        return temp_adapter.test_connection(
+            host=host, port=port, dbname=dbname,
+            user=user, password=password, sslmode=sslmode,
+            timeout_seconds=timeout_seconds
+        )
 
     def get_status_summary(self) -> Dict[str, int]:
-        """간단한 상태 요약 반환
-        - 관리 중인 풀 개수 등 메타 정보 제공
+        """
+        간단한 상태 요약 반환
+        - 관리 중인 어댑터 개수 등 메타 정보 제공
         """
         return {
-            "managed_pools": len(self._pools),
+            "managed_adapters": len(self._adapters),
         }
 
 

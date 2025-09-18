@@ -482,11 +482,11 @@
 
 작업 내용:
 
-- [ ] DatabaseAdapter 인터페이스 정의(create_pool/getconn/putconn/close_all/test_connection)
-- [ ] PostgresAdapter 구현(기존 psycopg2 기반 이식)
-- [ ] MySQLAdapter 구현(PyMySQL 또는 mysqlclient 기반, 풀 전략 결정)
-- [ ] SQLiteAdapter 구현(sqlite3, 풀 불필요 처리)
-- [ ] /api/databases/\* 엔드포인트가 어댑터 기반으로 동작하도록 변경
+- [x] DatabaseAdapter 인터페이스 정의(create_pool/getconn/putconn/close_all/test_connection)
+- [x] PostgresAdapter 구현(기존 psycopg2 기반 이식)
+- [x] MySQLAdapter 구현(PyMySQL 기반, 풀 전략 결정)
+- [x] SQLiteAdapter 구현(sqlite3, 풀 불필요 처리)
+- [x] /api/databases/* 엔드포인트가 어댑터 기반으로 동작하도록 변경
 ```
 
 #### 8.3 BackupEngine 백업 전략 어댑터

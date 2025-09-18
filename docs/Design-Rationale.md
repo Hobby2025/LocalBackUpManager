@@ -107,3 +107,9 @@
 - `Database` 모델에 `db_type` 컬럼을 추가하여 PostgreSQL, MySQL, SQLite 등 다중 데이터베이스 타입을 지원하고, 기본값 `postgresql`로 기존 레코드 호환성을 보장했습니다.
 - Alembic 마이그레이션(`20250918_add_db_type_column.py`)으로 안전한 스키마 변경을 수행하고, `ix_databases_db_type`와 `ix_databases_db_type_environment` 인덱스를 추가해 조회 성능을 최적화했습니다.
 - API 입력 검증에 `db_type` 필드를 반영하여 생성/수정 시 지원하지 않는 DB 타입 입력을 차단하고, 필터링(`?db_type=postgresql`) 및 정렬(`?sort=db_type`) 기능을 제공해 운영 편의성을 향상시켰습니다.
+
+## 8.2 DatabaseManager 어댑터화 (다중 DB 연결 관리)
+
+- `DatabaseAdapter` 추상 인터페이스를 정의하고 PostgreSQL(psycopg2), MySQL(PyMySQL), SQLite(sqlite3) 각각에 최적화된 어댑터를 구현하여 DB별 연결 풀 전략을 차별화했습니다.
+- 기존 `DatabaseManager`를 어댑터 패턴 기반으로 리팩토링하여 `db_type` 파라미터로 동적 어댑터 선택이 가능하도록 하고, 연결 풀 관리 API(`init-pool`, `close-pool`, `pool-status`)를 추가했습니다.
+- PostgreSQL은 SimpleConnectionPool, MySQL은 커스텀 풀, SQLite는 즉시 연결 방식으로 각 DB의 특성에 맞는 최적화된 연결 관리를 구현하여 확장성과 성능을 동시에 확보했습니다.
