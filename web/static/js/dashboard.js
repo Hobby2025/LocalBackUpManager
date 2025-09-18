@@ -203,7 +203,17 @@
       else elSystemStatus.classList.add("text-bg-secondary");
 
       setText(elSystemTimestamp, data.timestamp || "-");
-      setText(elTotalDatabases, data.databases?.total ?? 0);
+      
+      // 총 데이터베이스 수 및 첫 DB 등록 안내
+      const totalDbs = data.databases?.total ?? 0;
+      setText(elTotalDatabases, totalDbs);
+      
+      // 첫 DB 등록 안내 표시/숨김
+      const firstDbGuide = document.getElementById('first-db-guide');
+      if (firstDbGuide) {
+        firstDbGuide.style.display = totalDbs === 0 ? 'block' : 'none';
+      }
+      
       setText(elRecentBackups, data.backups?.recent_24h ?? 0);
       setText(elFailedBackups, data.backups?.failed ?? 0);
       setText(

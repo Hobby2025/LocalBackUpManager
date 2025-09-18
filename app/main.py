@@ -258,6 +258,11 @@ async def databases_page(request: Request):
     """데이터베이스 관리 HTML 페이지 렌더링"""
     return templates.TemplateResponse("databases.html", {"request": request})
 
+@app.get("/database-wizard", response_class=HTMLResponse)
+async def database_wizard_page(request: Request):
+    """스마트 DB 설정 마법사 HTML 페이지 렌더링"""
+    return templates.TemplateResponse("database_wizard.html", {"request": request})
+
 @app.get("/audit", response_class=HTMLResponse)
 async def audit_page(request: Request):
     """감사 로그 HTML 페이지 렌더링"""
