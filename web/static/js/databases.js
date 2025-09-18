@@ -23,6 +23,7 @@
   const formId = document.getElementById("form-id");
   const formName = document.getElementById("form-name");
   const formDisplayName = document.getElementById("form-display_name");
+  const formDbType = document.getElementById("form-db_type");
   const formHost = document.getElementById("form-host");
   const formPort = document.getElementById("form-port");
   const formDatabaseName = document.getElementById("form-database_name");
@@ -32,6 +33,7 @@
   const formEnvironment = document.getElementById("form-environment");
   const formPriority = document.getElementById("form-priority");
   const btnSave = document.getElementById("btn-save");
+  const hostHelp = document.getElementById("host-help");
 
   // 필터 요소
   const fltQ = document.getElementById("flt-q");
@@ -97,6 +99,53 @@
     });
   }
 
+  // DB 타입 변경 시 포트 자동 설정 및 UI 업데이트
+  function handleDbTypeChange() {
+    const selectedOption = formDbType.options[formDbType.selectedIndex];
+    const defaultPort = selectedOption.getAttribute('data-port');
+    const dbType = formDbType.value;
+    
+    // 기본 포트 자동 설정
+    if (defaultPort && formPort) {
+      formPort.value = defaultPort;
+    }
+    
+    // SQLite의 경우 UI 조정
+    if (dbType === 'sqlite') {
+      if (formHost) {
+        formHost.placeholder = '/path/to/database.db';
+        formHost.setAttribute('title', 'SQLite 데이터베이스 파일의 전체 경로를 입력하세요');
+      }
+      if (formPort) {
+        formPort.disabled = true;
+        formPort.value = '0';
+      }
+      if (formDatabaseName) {
+        formDatabaseName.disabled = true;
+        formDatabaseName.placeholder = '(파일 경로에서 자동 결정)';
+      }
+      if (hostHelp) {
+        hostHelp.textContent = 'SQLite 데이터베이스 파일의 전체 경로를 입력하세요.';
+      }
+    } else {
+      // PostgreSQL, MySQL의 경우
+      if (formHost) {
+        formHost.placeholder = dbType === 'postgresql' ? 'localhost 또는 PostgreSQL 서버 주소' : 'localhost 또는 MySQL 서버 주소';
+        formHost.removeAttribute('title');
+      }
+      if (formPort) {
+        formPort.disabled = false;
+      }
+      if (formDatabaseName) {
+        formDatabaseName.disabled = false;
+        formDatabaseName.placeholder = '데이터베이스명';
+      }
+      if (hostHelp) {
+        hostHelp.textContent = '데이터베이스 서버의 호스트 주소를 입력하세요.';
+      }
+    }
+  }
+
   // 목록 로드
   async function loadList() {
     try {
@@ -110,14 +159,14 @@
       renderPagination();
       if (items.length === 0) {
         tbody.innerHTML =
-          '<tr><td colspan="8" class="text-center text-muted">데이터 없음</td></tr>';
+          '<tr><td colspan="9" class="text-center text-muted">데이터 없음</td></tr>';
         return;
       }
       tbody.innerHTML = items.map((it) => rowTemplate(it)).join("");
     } catch (e) {
       console.error(e);
       tbody.innerHTML =
-        '<tr><td colspan="8" class="text-center text-danger">DB 목록 로드 실패</td></tr>';
+        '<tr><td colspan="9" class="text-center text-danger">DB 목록 로드 실패</td></tr>';
       swToast(e.message || 'DB 목록 로드 실패', 'error');
     }
   }
@@ -147,12 +196,23 @@
     const cls = map[(p || "").toLowerCase()] || "secondary";
     return `<span class="badge text-bg-${cls}">${escapeHtml(p || "-")}</span>`;
   }
+  
+  function dbTypeBadge(dbType) {
+    const typeMap = {
+      postgresql: { icon: "🐘", color: "primary", name: "PostgreSQL" },
+      mysql: { icon: "🐬", color: "info", name: "MySQL" },
+      sqlite: { icon: "📄", color: "secondary", name: "SQLite" }
+    };
+    const type = typeMap[(dbType || "").toLowerCase()] || { icon: "❓", color: "secondary", name: dbType || "Unknown" };
+    return `<span class="badge text-bg-${type.color}">${type.icon} ${type.name}</span>`;
+  }
 
   function rowTemplate(it) {
     return `
       <tr>
         <td>${escapeHtml(it.name)}</td>
         <td>${escapeHtml(it.display_name)}</td>
+        <td>${dbTypeBadge(it.db_type)}</td>
         <td>${envBadge(it.environment)}</td>
         <td>${priorityBadge(it.priority)}</td>
         <td>${escapeHtml(it.host)}</td>
@@ -235,6 +295,7 @@
       formId.value = it.id;
       formName.value = it.name || "";
       formDisplayName.value = it.display_name || "";
+      formDbType.value = it.db_type || "postgresql";
       formHost.value = it.host || "";
       formPort.value = it.port || 5432;
       formDatabaseName.value = it.database_name || "";
@@ -243,6 +304,9 @@
       formSslMode.value = it.ssl_mode || "require";
       formEnvironment.value = it.environment || "development";
       formPriority.value = it.priority || "medium";
+      
+      // DB 타입에 따른 UI 업데이트
+      handleDbTypeChange();
       document.getElementById("dbModalTitle").textContent = "Edit Database";
       modal && modal.show();
     } catch (e) {
@@ -257,6 +321,7 @@
       const payload = {
         name: formName.value.trim(),
         display_name: formDisplayName.value.trim(),
+        db_type: formDbType.value,
         host: formHost.value.trim(),
         port: Number(formPort.value) || 5432,
         database_name: formDatabaseName.value.trim(),
@@ -270,8 +335,9 @@
       if (
         !payload.name ||
         !payload.display_name ||
+        !payload.db_type ||
         !payload.host ||
-        !payload.database_name ||
+        (payload.db_type !== 'sqlite' && !payload.database_name) ||
         !payload.username
       ) {
         swToast("필수 항목을 모두 입력하세요.", 'warning');
@@ -401,6 +467,10 @@
   }
 
   document.addEventListener("click", handleAction);
+  
+  // DB 타입 변경 이벤트 리스너
+  formDbType && formDbType.addEventListener("change", handleDbTypeChange);
+  
   btnRefresh &&
     btnRefresh.addEventListener("click", () => {
       state.page = 1;
@@ -438,6 +508,44 @@
         loadList();
       }
     });
+
+  // 새 DB 추가 모달 초기화
+  function resetModal() {
+    formId.value = "";
+    formName.value = "";
+    formDisplayName.value = "";
+    formDbType.value = "";
+    formHost.value = "";
+    formPort.value = "5432";
+    formDatabaseName.value = "";
+    formUsername.value = "";
+    formPassword.value = "";
+    formSslMode.value = "require";
+    formEnvironment.value = "development";
+    formPriority.value = "medium";
+    
+    // 초기 상태로 UI 리셋
+    if (formHost) {
+      formHost.placeholder = "호스트 주소";
+      formHost.removeAttribute('title');
+    }
+    if (formPort) {
+      formPort.disabled = false;
+    }
+    if (formDatabaseName) {
+      formDatabaseName.disabled = false;
+      formDatabaseName.placeholder = "데이터베이스명";
+    }
+    if (hostHelp) {
+      hostHelp.textContent = "데이터베이스 서버의 호스트 주소를 입력하세요.";
+    }
+    
+    document.getElementById("dbModalTitle").textContent = "새 데이터베이스 추가";
+  }
+
+  // 새 DB 추가 버튼 이벤트
+  const btnAddDb = document.querySelector('[data-bs-target="#dbModal"]');
+  btnAddDb && btnAddDb.addEventListener("click", resetModal);
 
   document.addEventListener("DOMContentLoaded", loadList);
 })();
