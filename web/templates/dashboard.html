@@ -243,6 +243,168 @@
         </div>
       </div>
 
+      <!-- DB별 성능 메트릭 비교 -->
+      <div class="row g-3 mt-1">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span>📊 DB별 성능 메트릭 비교</span>
+              <div class="d-flex gap-2">
+                <select id="performance-time-range" class="form-select form-select-sm" style="width: 120px;">
+                  <option value="7">최근 7일</option>
+                  <option value="30" selected>최근 30일</option>
+                  <option value="90">최근 90일</option>
+                </select>
+                <button id="btn-refresh-performance" class="btn btn-sm btn-outline-info">
+                  <i class="fas fa-sync-alt"></i> 새로고침
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <!-- 성능 요약 카드 -->
+              <div class="row g-3 mb-4">
+                <div class="col-12 col-md-4">
+                  <div class="card border-primary h-100">
+                    <div class="card-body text-center">
+                      <div class="display-6 text-primary">🐘</div>
+                      <h6 class="card-title">PostgreSQL</h6>
+                      <div class="row g-2 small">
+                        <div class="col-6">
+                          <div class="text-muted">평균 시간</div>
+                          <div class="fw-bold" id="postgresql-avg-time">-</div>
+                        </div>
+                        <div class="col-6">
+                          <div class="text-muted">평균 압축률</div>
+                          <div class="fw-bold" id="postgresql-avg-compression">-</div>
+                        </div>
+                      </div>
+                      <div class="mt-2">
+                        <small class="text-muted">백업 수: <span id="postgresql-backup-count">0</span></small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <div class="card border-info h-100">
+                    <div class="card-body text-center">
+                      <div class="display-6 text-info">🐬</div>
+                      <h6 class="card-title">MySQL</h6>
+                      <div class="row g-2 small">
+                        <div class="col-6">
+                          <div class="text-muted">평균 시간</div>
+                          <div class="fw-bold" id="mysql-avg-time">-</div>
+                        </div>
+                        <div class="col-6">
+                          <div class="text-muted">평균 압축률</div>
+                          <div class="fw-bold" id="mysql-avg-compression">-</div>
+                        </div>
+                      </div>
+                      <div class="mt-2">
+                        <small class="text-muted">백업 수: <span id="mysql-backup-count">0</span></small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <div class="card border-secondary h-100">
+                    <div class="card-body text-center">
+                      <div class="display-6 text-secondary">📄</div>
+                      <h6 class="card-title">SQLite</h6>
+                      <div class="row g-2 small">
+                        <div class="col-6">
+                          <div class="text-muted">평균 시간</div>
+                          <div class="fw-bold" id="sqlite-avg-time">-</div>
+                        </div>
+                        <div class="col-6">
+                          <div class="text-muted">평균 압축률</div>
+                          <div class="fw-bold" id="sqlite-avg-compression">-</div>
+                        </div>
+                      </div>
+                      <div class="mt-2">
+                        <small class="text-muted">백업 수: <span id="sqlite-backup-count">0</span></small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 성능 차트 -->
+              <div class="row g-3">
+                <!-- 평균 백업 시간 비교 차트 -->
+                <div class="col-12 col-lg-6">
+                  <div class="card h-100">
+                    <div class="card-header">
+                      <h6 class="mb-0">⏱️ DB 타입별 평균 백업 시간</h6>
+                    </div>
+                    <div class="card-body">
+                      <div class="position-relative" style="height: 300px">
+                        <canvas id="backupTimeComparisonChart"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 압축률 비교 차트 -->
+                <div class="col-12 col-lg-6">
+                  <div class="card h-100">
+                    <div class="card-header">
+                      <h6 class="mb-0">🗜️ DB 타입별 압축률 비교</h6>
+                    </div>
+                    <div class="card-body">
+                      <div class="position-relative" style="height: 300px">
+                        <canvas id="compressionComparisonChart"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 백업 파일 크기 추이 -->
+                <div class="col-12">
+                  <div class="card">
+                    <div class="card-header">
+                      <h6 class="mb-0">📈 DB 타입별 백업 파일 크기 추이</h6>
+                    </div>
+                    <div class="card-body">
+                      <div class="position-relative" style="height: 350px">
+                        <canvas id="fileSizeTrendChart"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 성능 개선 권장사항 -->
+              <div class="row g-3 mt-3">
+                <div class="col-12">
+                  <div class="card border-warning">
+                    <div class="card-header bg-warning bg-opacity-10">
+                      <h6 class="mb-0 text-warning">💡 성능 개선 권장사항</h6>
+                    </div>
+                    <div class="card-body">
+                      <div id="performance-recommendations">
+                        <div class="text-center text-muted py-3">
+                          <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">분석 중...</span>
+                          </div>
+                          <div class="mt-2">성능 데이터 분석 중...</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 마지막 업데이트 시간 -->
+              <div class="text-center mt-3">
+                <small class="text-muted">
+                  마지막 업데이트: <span id="performance-metrics-timestamp">-</span>
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 통계 차트 -->
       <div class="row g-3 mt-1">
         <div class="col-12">
