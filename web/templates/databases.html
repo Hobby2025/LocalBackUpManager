@@ -158,101 +158,257 @@
             ></button>
           </div>
           <div class="modal-body">
-            <form id="db-form">
-              <input type="hidden" id="form-id" />
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label">이름</label>
-                  <input class="form-control" id="form-name" required />
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">표시명</label>
-                  <input class="form-control" id="form-display_name" required />
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">데이터베이스 타입</label>
-                  <select class="form-select" id="form-db_type" required>
-                    <option value="">타입을 선택하세요</option>
-                    <option value="postgresql" data-port="5432" data-icon="🐘">PostgreSQL</option>
-                    <option value="mysql" data-port="3306" data-icon="🐬">MySQL</option>
-                    <option value="sqlite" data-port="0" data-icon="📄">SQLite</option>
-                  </select>
-                  <div class="form-text">데이터베이스 종류를 선택하면 기본 포트가 자동 설정됩니다.</div>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">호스트</label>
-                  <div class="input-group">
-                    <input class="form-control" id="form-host" required />
-                    <button class="btn btn-outline-secondary" type="button" id="btn-browse-file" style="display: none;">
-                      📁 찾아보기
-                    </button>
+            <!-- 탭 네비게이션 -->
+            <ul class="nav nav-tabs" id="dbConfigTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="basic-tab" data-bs-toggle="tab" data-bs-target="#basic-config" type="button" role="tab">
+                  🔧 기본 설정
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="backup-tab" data-bs-toggle="tab" data-bs-target="#backup-config" type="button" role="tab">
+                  💾 백업 설정
+                </button>
+              </li>
+            </ul>
+            
+            <form id="dbForm">
+              <!-- 탭 콘텐츠 -->
+              <div class="tab-content mt-3" id="dbConfigTabsContent">
+                <!-- 기본 설정 탭 -->
+                <div class="tab-pane fade show active" id="basic-config" role="tabpanel">
+                  <input type="hidden" id="form-id" />
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label">이름</label>
+                      <input class="form-control" id="form-name" required />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">표시명</label>
+                      <input class="form-control" id="form-display_name" required />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">데이터베이스 타입</label>
+                      <select class="form-select" id="form-db_type" required>
+                        <option value="">타입을 선택하세요</option>
+                        <option value="postgresql" data-port="5432" data-icon="🐘">PostgreSQL</option>
+                        <option value="mysql" data-port="3306" data-icon="🐬">MySQL</option>
+                        <option value="sqlite" data-port="0" data-icon="📄">SQLite</option>
+                      </select>
+                      <div class="form-text">데이터베이스 종류를 선택하면 기본 포트가 자동 설정됩니다.</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">호스트</label>
+                      <div class="input-group">
+                        <input class="form-control" id="form-host" required />
+                        <button class="btn btn-outline-secondary" type="button" id="btn-browse-file" style="display: none;">
+                          📁 찾아보기
+                        </button>
+                      </div>
+                      <input type="file" id="file-picker" accept=".db,.sqlite,.sqlite3" style="display: none;" />
+                      <div class="form-text" id="host-help">SQLite의 경우 파일 경로를 입력하세요.</div>
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">포트 <span class="text-danger" id="port-required">*</span></label>
+                      <input
+                        type="number"
+                        class="form-control"
+                        id="form-port"
+                        value="5432"
+                        min="0"
+                        max="65535"
+                      />
+                      <div class="form-text" id="port-help">기본 포트가 자동 설정됩니다.</div>
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">DB명 <span class="text-danger" id="dbname-required">*</span></label>
+                      <input
+                        class="form-control"
+                        id="form-database_name"
+                        required
+                      />
+                      <div class="form-text" id="dbname-help">연결할 데이터베이스 이름을 입력하세요.</div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">사용자명 <span class="text-danger" id="username-required">*</span></label>
+                      <input class="form-control" id="form-username" required />
+                      <div class="form-text" id="username-help">데이터베이스 접속 사용자명을 입력하세요.</div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">비밀번호 <span class="text-danger" id="password-required">*</span></label>
+                      <input
+                        type="password"
+                        class="form-control"
+                        id="form-password"
+                        placeholder="수정 시 공란이면 기존 비밀번호 유지"
+                      />
+                      <div class="form-text" id="password-help">수정 시 비밀번호를 비워두면 기존 비밀번호를 유지합니다.</div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">SSL 모드 <span class="text-muted" id="ssl-optional">(선택)</span></label>
+                      <select class="form-select" id="form-ssl_mode">
+                        <option value="disable">disable - SSL 사용 안함</option>
+                        <option value="allow">allow - SSL 허용</option>
+                        <option value="prefer">prefer - SSL 선호</option>
+                        <option value="require" selected>require - SSL 필수</option>
+                        <option value="verify-ca">verify-ca - CA 인증서 검증</option>
+                        <option value="verify-full">verify-full - 전체 검증</option>
+                      </select>
+                      <div class="form-text" id="ssl-help">SSL/TLS 연결 보안 수준을 선택하세요.</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">환경</label>
+                      <select class="form-select" id="form-environment">
+                        <option value="production">production</option>
+                        <option value="staging">staging</option>
+                        <option value="development">development</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">우선순위</label>
+                      <select class="form-select" id="form-priority">
+                        <option value="high">high</option>
+                        <option value="medium">medium</option>
+                        <option value="low">low</option>
+                      </select>
+                    </div>
                   </div>
-                  <input type="file" id="file-picker" accept=".db,.sqlite,.sqlite3" style="display: none;" />
-                  <div class="form-text" id="host-help">SQLite의 경우 파일 경로를 입력하세요.</div>
+                  
+                  <!-- 연결 테스트 결과 영역 -->
+                  <div class="row mt-3" id="connection-test-result" style="display: none;">
+                    <div class="col-12">
+                      <div class="alert" role="alert" id="test-result-alert">
+                        <div class="d-flex align-items-center">
+                          <div class="me-2" id="test-result-icon"></div>
+                          <div class="flex-grow-1">
+                            <div class="fw-bold" id="test-result-title"></div>
+                            <div class="small" id="test-result-message"></div>
+                            <div class="small text-muted mt-1" id="test-result-details"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="col-md-3">
-                  <label class="form-label">포트 <span class="text-danger" id="port-required">*</span></label>
-                  <input
-                    type="number"
-                    class="form-control"
-                    id="form-port"
-                    value="5432"
-                    min="0"
-                    max="65535"
-                  />
-                  <div class="form-text" id="port-help">기본 포트가 자동 설정됩니다.</div>
-                </div>
-                <div class="col-md-3">
-                  <label class="form-label">DB명 <span class="text-danger" id="dbname-required">*</span></label>
-                  <input
-                    class="form-control"
-                    id="form-database_name"
-                    required
-                  />
-                  <div class="form-text" id="dbname-help">연결할 데이터베이스 이름을 입력하세요.</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">사용자명 <span class="text-danger" id="username-required">*</span></label>
-                  <input class="form-control" id="form-username" required />
-                  <div class="form-text" id="username-help">데이터베이스 접속 사용자명을 입력하세요.</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">비밀번호 <span class="text-danger" id="password-required">*</span></label>
-                  <input
-                    type="password"
-                    class="form-control"
-                    id="form-password"
-                    placeholder="수정 시 공란이면 기존 비밀번호 유지"
-                  />
-                  <div class="form-text" id="password-help">수정 시 비밀번호를 비워두면 기존 비밀번호를 유지합니다.</div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">SSL 모드 <span class="text-muted" id="ssl-optional">(선택)</span></label>
-                  <select class="form-select" id="form-ssl_mode">
-                    <option value="disable">disable - SSL 사용 안함</option>
-                    <option value="allow">allow - SSL 허용</option>
-                    <option value="prefer">prefer - SSL 선호</option>
-                    <option value="require" selected>require - SSL 필수</option>
-                    <option value="verify-ca">verify-ca - CA 인증서 검증</option>
-                    <option value="verify-full">verify-full - 전체 검증</option>
-                  </select>
-                  <div class="form-text" id="ssl-help">SSL/TLS 연결 보안 수준을 선택하세요.</div>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">환경</label>
-                  <select class="form-select" id="form-environment">
-                    <option value="production">production</option>
-                    <option value="staging">staging</option>
-                    <option value="development">development</option>
-                  </select>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">우선순위</label>
-                  <select class="form-select" id="form-priority">
-                    <option value="high">high</option>
-                    <option value="medium">medium</option>
-                    <option value="low">low</option>
-                  </select>
+                
+                <!-- 백업 설정 탭 -->
+                <div class="tab-pane fade" id="backup-config" role="tabpanel">
+                  <div class="row g-3">
+                    <!-- 백업 스케줄 설정 -->
+                    <div class="col-12">
+                      <h6 class="fw-bold text-primary mb-3">📅 백업 스케줄</h6>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">전체 백업 주기</label>
+                      <select class="form-select" id="form-full-backup-schedule">
+                        <option value="daily">매일</option>
+                        <option value="weekly" selected>매주</option>
+                        <option value="monthly">매월</option>
+                        <option value="manual">수동</option>
+                      </select>
+                      <div class="form-text">전체 데이터베이스 백업 주기를 설정합니다.</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">증분 백업 주기</label>
+                      <select class="form-select" id="form-incremental-backup-schedule">
+                        <option value="hourly">매시간</option>
+                        <option value="daily" selected>매일</option>
+                        <option value="weekly">매주</option>
+                        <option value="disabled">사용 안함</option>
+                      </select>
+                      <div class="form-text">변경된 데이터만 백업하는 주기를 설정합니다.</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">백업 시작 시간</label>
+                      <input type="time" class="form-control" id="form-backup-time" value="02:00" />
+                      <div class="form-text">백업이 시작될 시간을 설정합니다.</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">백업 활성화</label>
+                      <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="form-backup-enabled" checked />
+                        <label class="form-check-label" for="form-backup-enabled">
+                          자동 백업 활성화
+                        </label>
+                      </div>
+                      <div class="form-text">체크 해제 시 수동 백업만 가능합니다.</div>
+                    </div>
+                    
+                    <!-- 압축 및 암호화 설정 -->
+                    <div class="col-12 mt-4">
+                      <h6 class="fw-bold text-success mb-3">🗜️ 압축 및 암호화</h6>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">압축 알고리즘</label>
+                      <select class="form-select" id="form-compression-algorithm">
+                        <option value="gzip" selected>gzip - 표준 압축</option>
+                        <option value="lz4">lz4 - 빠른 압축</option>
+                        <option value="zstd">zstd - 고효율 압축</option>
+                        <option value="none">압축 안함</option>
+                      </select>
+                      <div class="form-text">백업 파일 압축 방식을 선택합니다.</div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">압축 레벨</label>
+                      <select class="form-select" id="form-compression-level">
+                        <option value="1">1 - 빠름</option>
+                        <option value="3">3 - 보통</option>
+                        <option value="6" selected>6 - 균형</option>
+                        <option value="9">9 - 최고</option>
+                      </select>
+                      <div class="form-text">압축 품질과 속도의 균형을 조절합니다.</div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">암호화</label>
+                      <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="form-encryption-enabled" />
+                        <label class="form-check-label" for="form-encryption-enabled">
+                          AES-256 암호화
+                        </label>
+                      </div>
+                      <div class="form-text">백업 파일을 암호화하여 보안을 강화합니다.</div>
+                    </div>
+                    <div class="col-12" id="encryption-password-section" style="display: none;">
+                      <label class="form-label">암호화 비밀번호</label>
+                      <input type="password" class="form-control" id="form-encryption-password" placeholder="암호화에 사용할 비밀번호를 입력하세요" />
+                      <div class="form-text text-warning">⚠️ 이 비밀번호를 분실하면 백업을 복원할 수 없습니다.</div>
+                    </div>
+                    
+                    <!-- 보존 정책 설정 -->
+                    <div class="col-12 mt-4">
+                      <h6 class="fw-bold text-warning mb-3">🗄️ 보존 정책</h6>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">일간 백업 보존</label>
+                      <input type="number" class="form-control" id="form-daily-retention" value="7" min="1" max="365" />
+                      <div class="form-text">일간 백업을 보관할 일수입니다.</div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">주간 백업 보존</label>
+                      <input type="number" class="form-control" id="form-weekly-retention" value="4" min="1" max="52" />
+                      <div class="form-text">주간 백업을 보관할 주수입니다.</div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">월간 백업 보존</label>
+                      <input type="number" class="form-control" id="form-monthly-retention" value="12" min="1" max="120" />
+                      <div class="form-text">월간 백업을 보관할 개월수입니다.</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">최대 백업 크기 (GB)</label>
+                      <input type="number" class="form-control" id="form-max-backup-size" value="100" min="1" step="0.1" />
+                      <div class="form-text">단일 백업 파일의 최대 크기를 제한합니다.</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">자동 정리</label>
+                      <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="form-auto-cleanup" checked />
+                        <label class="form-check-label" for="form-auto-cleanup">
+                          오래된 백업 자동 삭제
+                        </label>
+                      </div>
+                      <div class="form-text">보존 정책에 따라 오래된 백업을 자동으로 삭제합니다.</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </form>

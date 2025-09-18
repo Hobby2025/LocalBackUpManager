@@ -61,6 +61,32 @@
   const fltOrder = document.getElementById("flt-order");
   const fltPageSize = document.getElementById("flt-page-size");
 
+  // 연결 테스트 요소들
+  const btnTestConnection = document.getElementById("btn-test-connection");
+  const testSpinner = document.getElementById("test-spinner");
+  const connectionTestResult = document.getElementById("connection-test-result");
+  const testResultAlert = document.getElementById("test-result-alert");
+  const testResultIcon = document.getElementById("test-result-icon");
+  const testResultTitle = document.getElementById("test-result-title");
+  const testResultMessage = document.getElementById("test-result-message");
+  const testResultDetails = document.getElementById("test-result-details");
+
+  // 백업 설정 요소들
+  const formFullBackupSchedule = document.getElementById("form-full-backup-schedule");
+  const formIncrementalBackupSchedule = document.getElementById("form-incremental-backup-schedule");
+  const formBackupTime = document.getElementById("form-backup-time");
+  const formBackupEnabled = document.getElementById("form-backup-enabled");
+  const formCompressionAlgorithm = document.getElementById("form-compression-algorithm");
+  const formCompressionLevel = document.getElementById("form-compression-level");
+  const formEncryptionEnabled = document.getElementById("form-encryption-enabled");
+  const formEncryptionPassword = document.getElementById("form-encryption-password");
+  const encryptionPasswordSection = document.getElementById("encryption-password-section");
+  const formDailyRetention = document.getElementById("form-daily-retention");
+  const formWeeklyRetention = document.getElementById("form-weekly-retention");
+  const formMonthlyRetention = document.getElementById("form-monthly-retention");
+  const formMaxBackupSize = document.getElementById("form-max-backup-size");
+  const formAutoCleanup = document.getElementById("form-auto-cleanup");
+
   // 페이징 상태
   let state = {
     page: 1,
@@ -580,8 +606,48 @@
       formEnvironment.value = it.environment || "development";
       formPriority.value = it.priority || "medium";
       
+      // 백업 설정 불러오기 (있는 경우)
+      if (it.backup_config) {
+        const config = it.backup_config;
+        if (formFullBackupSchedule) formFullBackupSchedule.value = config.full_backup_schedule || "weekly";
+        if (formIncrementalBackupSchedule) formIncrementalBackupSchedule.value = config.incremental_backup_schedule || "daily";
+        if (formBackupTime) formBackupTime.value = config.backup_time || "02:00";
+        if (formBackupEnabled) formBackupEnabled.checked = config.backup_enabled !== false;
+        
+        if (config.compression) {
+          if (formCompressionAlgorithm) formCompressionAlgorithm.value = config.compression.algorithm || "gzip";
+          if (formCompressionLevel) formCompressionLevel.value = config.compression.level || 6;
+        }
+        
+        if (config.encryption) {
+          if (formEncryptionEnabled) formEncryptionEnabled.checked = config.encryption.enabled || false;
+          // 보안상 암호화 비밀번호는 불러오지 않음
+          if (formEncryptionPassword) formEncryptionPassword.value = "";
+        }
+        
+        if (config.retention) {
+          if (formDailyRetention) formDailyRetention.value = config.retention.daily || 7;
+          if (formWeeklyRetention) formWeeklyRetention.value = config.retention.weekly || 4;
+          if (formMonthlyRetention) formMonthlyRetention.value = config.retention.monthly || 12;
+          if (formMaxBackupSize) formMaxBackupSize.value = config.retention.max_backup_size_gb || 100;
+          if (formAutoCleanup) formAutoCleanup.checked = config.retention.auto_cleanup !== false;
+        }
+      }
+      
       // DB 타입에 따른 UI 업데이트
       handleDbTypeChange();
+      
+      // 연결 테스트 결과 숨기기
+      if (connectionTestResult) {
+        connectionTestResult.style.display = 'none';
+      }
+      
+      // 연결 테스트 버튼 상태 리셋
+      setTestingState(false);
+      
+      // 암호화 UI 업데이트
+      handleEncryptionToggle();
+      
       document.getElementById("dbModalTitle").textContent = "Edit Database";
       modal && modal.show();
     } catch (e) {
@@ -605,6 +671,28 @@
         ssl_mode: formSslMode.value.trim(),
         environment: formEnvironment.value,
         priority: formPriority.value,
+        // 백업 설정 추가
+        backup_config: {
+          full_backup_schedule: formFullBackupSchedule ? formFullBackupSchedule.value : "weekly",
+          incremental_backup_schedule: formIncrementalBackupSchedule ? formIncrementalBackupSchedule.value : "daily",
+          backup_time: formBackupTime ? formBackupTime.value : "02:00",
+          backup_enabled: formBackupEnabled ? formBackupEnabled.checked : true,
+          compression: {
+            algorithm: formCompressionAlgorithm ? formCompressionAlgorithm.value : "gzip",
+            level: formCompressionLevel ? Number(formCompressionLevel.value) : 6
+          },
+          encryption: {
+            enabled: formEncryptionEnabled ? formEncryptionEnabled.checked : false,
+            password: (formEncryptionEnabled && formEncryptionEnabled.checked && formEncryptionPassword) ? formEncryptionPassword.value : null
+          },
+          retention: {
+            daily: formDailyRetention ? Number(formDailyRetention.value) : 7,
+            weekly: formWeeklyRetention ? Number(formWeeklyRetention.value) : 4,
+            monthly: formMonthlyRetention ? Number(formMonthlyRetention.value) : 12,
+            max_backup_size_gb: formMaxBackupSize ? Number(formMaxBackupSize.value) : 100,
+            auto_cleanup: formAutoCleanup ? formAutoCleanup.checked : true
+          }
+        }
       };
 
       // DB 타입별 유효성 검사
@@ -741,6 +829,30 @@
   // DB 타입 변경 이벤트 리스너
   formDbType && formDbType.addEventListener("change", handleDbTypeChange);
   
+  // 연결 테스트 버튼 이벤트 리스너
+  btnTestConnection && btnTestConnection.addEventListener("click", testDatabaseConnection);
+  
+  // 암호화 옵션 변경 이벤트 리스너
+  formEncryptionEnabled && formEncryptionEnabled.addEventListener("change", handleEncryptionToggle);
+  
+  // 암호화 옵션에 따른 UI 업데이트
+  function handleEncryptionToggle() {
+    if (formEncryptionEnabled && encryptionPasswordSection) {
+      if (formEncryptionEnabled.checked) {
+        encryptionPasswordSection.style.display = 'block';
+        if (formEncryptionPassword) {
+          formEncryptionPassword.setAttribute('required', 'required');
+        }
+      } else {
+        encryptionPasswordSection.style.display = 'none';
+        if (formEncryptionPassword) {
+          formEncryptionPassword.removeAttribute('required');
+          formEncryptionPassword.value = '';
+        }
+      }
+    }
+  }
+  
   // 파일 선택기 이벤트 리스너
   btnBrowseFile && btnBrowseFile.addEventListener("click", () => {
     filePicker && filePicker.click();
@@ -798,6 +910,7 @@
 
   // 새 DB 추가 모달 초기화
   function resetModal() {
+    // 기본 설정 필드 리셋
     formId.value = "";
     formName.value = "";
     formDisplayName.value = "";
@@ -811,8 +924,34 @@
     formEnvironment.value = "development";
     formPriority.value = "medium";
     
+    // 백업 설정 필드 리셋
+    if (formFullBackupSchedule) formFullBackupSchedule.value = "weekly";
+    if (formIncrementalBackupSchedule) formIncrementalBackupSchedule.value = "daily";
+    if (formBackupTime) formBackupTime.value = "02:00";
+    if (formBackupEnabled) formBackupEnabled.checked = true;
+    if (formCompressionAlgorithm) formCompressionAlgorithm.value = "gzip";
+    if (formCompressionLevel) formCompressionLevel.value = "6";
+    if (formEncryptionEnabled) formEncryptionEnabled.checked = false;
+    if (formEncryptionPassword) formEncryptionPassword.value = "";
+    if (formDailyRetention) formDailyRetention.value = "7";
+    if (formWeeklyRetention) formWeeklyRetention.value = "4";
+    if (formMonthlyRetention) formMonthlyRetention.value = "12";
+    if (formMaxBackupSize) formMaxBackupSize.value = "100";
+    if (formAutoCleanup) formAutoCleanup.checked = true;
+    
     // 기본 UI 상태로 리셋
     configureDefaultUI();
+    
+    // 연결 테스트 결과 숨기기
+    if (connectionTestResult) {
+      connectionTestResult.style.display = 'none';
+    }
+    
+    // 연결 테스트 버튼 상태 리셋
+    setTestingState(false);
+    
+    // 암호화 UI 리셋
+    handleEncryptionToggle();
     
     document.getElementById("dbModalTitle").textContent = "새 데이터베이스 추가";
   }
