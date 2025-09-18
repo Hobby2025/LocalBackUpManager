@@ -34,6 +34,22 @@
   const formPriority = document.getElementById("form-priority");
   const btnSave = document.getElementById("btn-save");
   const hostHelp = document.getElementById("host-help");
+  
+  // 도움말 및 필수 표시 요소들
+  const portHelp = document.getElementById("port-help");
+  const portRequired = document.getElementById("port-required");
+  const dbnameHelp = document.getElementById("dbname-help");
+  const dbnameRequired = document.getElementById("dbname-required");
+  const usernameHelp = document.getElementById("username-help");
+  const usernameRequired = document.getElementById("username-required");
+  const passwordHelp = document.getElementById("password-help");
+  const passwordRequired = document.getElementById("password-required");
+  const sslHelp = document.getElementById("ssl-help");
+  const sslOptional = document.getElementById("ssl-optional");
+  
+  // 파일 선택기 요소들
+  const btnBrowseFile = document.getElementById("btn-browse-file");
+  const filePicker = document.getElementById("file-picker");
 
   // 필터 요소
   const fltQ = document.getElementById("flt-q");
@@ -110,40 +126,299 @@
       formPort.value = defaultPort;
     }
     
-    // SQLite의 경우 UI 조정
     if (dbType === 'sqlite') {
-      if (formHost) {
-        formHost.placeholder = '/path/to/database.db';
-        formHost.setAttribute('title', 'SQLite 데이터베이스 파일의 전체 경로를 입력하세요');
-      }
-      if (formPort) {
-        formPort.disabled = true;
-        formPort.value = '0';
-      }
-      if (formDatabaseName) {
-        formDatabaseName.disabled = true;
-        formDatabaseName.placeholder = '(파일 경로에서 자동 결정)';
-      }
-      if (hostHelp) {
-        hostHelp.textContent = 'SQLite 데이터베이스 파일의 전체 경로를 입력하세요.';
-      }
+      configureSQLiteUI();
+    } else if (dbType === 'postgresql') {
+      configurePostgreSQLUI();
+    } else if (dbType === 'mysql') {
+      configureMySQLUI();
     } else {
-      // PostgreSQL, MySQL의 경우
-      if (formHost) {
-        formHost.placeholder = dbType === 'postgresql' ? 'localhost 또는 PostgreSQL 서버 주소' : 'localhost 또는 MySQL 서버 주소';
-        formHost.removeAttribute('title');
-      }
-      if (formPort) {
-        formPort.disabled = false;
-      }
-      if (formDatabaseName) {
-        formDatabaseName.disabled = false;
-        formDatabaseName.placeholder = '데이터베이스명';
-      }
-      if (hostHelp) {
-        hostHelp.textContent = '데이터베이스 서버의 호스트 주소를 입력하세요.';
-      }
+      configureDefaultUI();
     }
+  }
+
+  // SQLite 전용 UI 설정
+  function configureSQLiteUI() {
+    // 호스트 필드 → 파일 경로
+    if (formHost) {
+      formHost.placeholder = '/path/to/database.db';
+      formHost.setAttribute('title', 'SQLite 데이터베이스 파일의 전체 경로를 입력하세요');
+      formHost.setAttribute('pattern', '^[/\\\\].*\\.(db|sqlite|sqlite3)$');
+    }
+    if (hostHelp) {
+      hostHelp.innerHTML = 'SQLite 데이터베이스 파일의 전체 경로를 입력하세요. <br><small class="text-muted">예: /data/myapp.db 또는 C:\\data\\myapp.db</small>';
+    }
+    
+    // 파일 선택기 버튼 표시
+    if (btnBrowseFile) {
+      btnBrowseFile.style.display = 'block';
+    }
+
+    // 포트 필드 비활성화
+    if (formPort) {
+      formPort.disabled = true;
+      formPort.value = '0';
+      formPort.removeAttribute('required');
+    }
+    if (portHelp) {
+      portHelp.textContent = 'SQLite는 포트를 사용하지 않습니다.';
+    }
+    if (portRequired) {
+      portRequired.style.display = 'none';
+    }
+
+    // DB명 필드 비활성화
+    if (formDatabaseName) {
+      formDatabaseName.disabled = true;
+      formDatabaseName.placeholder = '(파일 경로에서 자동 결정)';
+      formDatabaseName.removeAttribute('required');
+    }
+    if (dbnameHelp) {
+      dbnameHelp.textContent = '데이터베이스명은 파일 경로에서 자동으로 결정됩니다.';
+    }
+    if (dbnameRequired) {
+      dbnameRequired.style.display = 'none';
+    }
+
+    // 사용자명/비밀번호 비활성화
+    if (formUsername) {
+      formUsername.disabled = true;
+      formUsername.placeholder = '(SQLite는 인증 불필요)';
+      formUsername.removeAttribute('required');
+    }
+    if (usernameHelp) {
+      usernameHelp.textContent = 'SQLite는 사용자 인증이 필요하지 않습니다.';
+    }
+    if (usernameRequired) {
+      usernameRequired.style.display = 'none';
+    }
+
+    if (formPassword) {
+      formPassword.disabled = true;
+      formPassword.placeholder = '(SQLite는 비밀번호 불필요)';
+      formPassword.removeAttribute('required');
+    }
+    if (passwordHelp) {
+      passwordHelp.textContent = 'SQLite는 비밀번호가 필요하지 않습니다.';
+    }
+    if (passwordRequired) {
+      passwordRequired.style.display = 'none';
+    }
+
+    // SSL 모드 비활성화
+    if (formSslMode) {
+      formSslMode.disabled = true;
+      formSslMode.value = 'disable';
+    }
+    if (sslHelp) {
+      sslHelp.textContent = 'SQLite는 네트워크 연결을 사용하지 않으므로 SSL이 불필요합니다.';
+    }
+  }
+
+  // PostgreSQL 전용 UI 설정
+  function configurePostgreSQLUI() {
+    resetToDefaultUI();
+    
+    if (formHost) {
+      formHost.placeholder = 'localhost 또는 PostgreSQL 서버 주소';
+    }
+    if (hostHelp) {
+      hostHelp.innerHTML = 'PostgreSQL 서버의 호스트 주소를 입력하세요. <br><small class="text-muted">예: localhost, 192.168.1.100, postgres.example.com</small>';
+    }
+    if (portHelp) {
+      portHelp.textContent = 'PostgreSQL 기본 포트는 5432입니다.';
+    }
+    if (dbnameHelp) {
+      dbnameHelp.textContent = '연결할 PostgreSQL 데이터베이스 이름을 입력하세요.';
+    }
+    if (sslHelp) {
+      sslHelp.textContent = 'PostgreSQL SSL/TLS 연결 보안 수준을 선택하세요. 프로덕션 환경에서는 require 이상 권장합니다.';
+    }
+  }
+
+  // MySQL 전용 UI 설정
+  function configureMySQLUI() {
+    resetToDefaultUI();
+    
+    if (formHost) {
+      formHost.placeholder = 'localhost 또는 MySQL 서버 주소';
+    }
+    if (hostHelp) {
+      hostHelp.innerHTML = 'MySQL 서버의 호스트 주소를 입력하세요. <br><small class="text-muted">예: localhost, 192.168.1.100, mysql.example.com</small>';
+    }
+    if (portHelp) {
+      portHelp.textContent = 'MySQL 기본 포트는 3306입니다.';
+    }
+    if (dbnameHelp) {
+      dbnameHelp.textContent = '연결할 MySQL 데이터베이스(스키마) 이름을 입력하세요.';
+    }
+    if (sslHelp) {
+      sslHelp.textContent = 'MySQL SSL/TLS 연결 보안 수준을 선택하세요. MySQL 8.0+에서는 기본적으로 SSL이 활성화됩니다.';
+    }
+
+    // MySQL SSL 옵션 조정
+    if (formSslMode) {
+      formSslMode.innerHTML = `
+        <option value="DISABLED">DISABLED - SSL 사용 안함</option>
+        <option value="PREFERRED">PREFERRED - SSL 선호</option>
+        <option value="REQUIRED" selected>REQUIRED - SSL 필수</option>
+        <option value="VERIFY_CA">VERIFY_CA - CA 인증서 검증</option>
+        <option value="VERIFY_IDENTITY">VERIFY_IDENTITY - 전체 검증</option>
+      `;
+    }
+  }
+
+  // 기본 UI로 리셋
+  function resetToDefaultUI() {
+    // 모든 필드 활성화
+    if (formHost) {
+      formHost.disabled = false;
+      formHost.removeAttribute('pattern');
+      formHost.removeAttribute('title');
+    }
+    
+    // 파일 선택기 버튼 숨기기
+    if (btnBrowseFile) {
+      btnBrowseFile.style.display = 'none';
+    }
+    if (formPort) {
+      formPort.disabled = false;
+      formPort.setAttribute('required', 'required');
+    }
+    if (formDatabaseName) {
+      formDatabaseName.disabled = false;
+      formDatabaseName.placeholder = '데이터베이스명';
+      formDatabaseName.setAttribute('required', 'required');
+    }
+    if (formUsername) {
+      formUsername.disabled = false;
+      formUsername.placeholder = '';
+      formUsername.setAttribute('required', 'required');
+    }
+    if (formPassword) {
+      formPassword.disabled = false;
+      formPassword.placeholder = '수정 시 공란이면 기존 비밀번호 유지';
+    }
+    if (formSslMode) {
+      formSslMode.disabled = false;
+      // PostgreSQL SSL 옵션으로 리셋
+      formSslMode.innerHTML = `
+        <option value="disable">disable - SSL 사용 안함</option>
+        <option value="allow">allow - SSL 허용</option>
+        <option value="prefer">prefer - SSL 선호</option>
+        <option value="require" selected>require - SSL 필수</option>
+        <option value="verify-ca">verify-ca - CA 인증서 검증</option>
+        <option value="verify-full">verify-full - 전체 검증</option>
+      `;
+    }
+
+    // 필수 표시 복원
+    if (portRequired) portRequired.style.display = 'inline';
+    if (dbnameRequired) dbnameRequired.style.display = 'inline';
+    if (usernameRequired) usernameRequired.style.display = 'inline';
+    if (passwordRequired) passwordRequired.style.display = 'inline';
+  }
+
+  // 기본 UI 설정 (타입 미선택 시)
+  function configureDefaultUI() {
+    resetToDefaultUI();
+    
+    if (hostHelp) {
+      hostHelp.textContent = '데이터베이스 서버의 호스트 주소를 입력하세요.';
+    }
+    if (portHelp) {
+      portHelp.textContent = '기본 포트가 자동 설정됩니다.';
+    }
+    if (dbnameHelp) {
+      dbnameHelp.textContent = '연결할 데이터베이스 이름을 입력하세요.';
+    }
+    if (sslHelp) {
+      sslHelp.textContent = 'SSL/TLS 연결 보안 수준을 선택하세요.';
+    }
+  }
+
+  // DB 타입별 유효성 검사
+  function validateFormByDbType(payload) {
+    // 공통 필수 필드
+    if (!payload.name || !payload.display_name || !payload.db_type) {
+      return { isValid: false, message: "이름, 표시명, 데이터베이스 타입은 필수입니다." };
+    }
+
+    if (payload.db_type === 'sqlite') {
+      return validateSQLiteForm(payload);
+    } else if (payload.db_type === 'postgresql') {
+      return validatePostgreSQLForm(payload);
+    } else if (payload.db_type === 'mysql') {
+      return validateMySQLForm(payload);
+    } else {
+      return { isValid: false, message: "지원하지 않는 데이터베이스 타입입니다." };
+    }
+  }
+
+  // SQLite 유효성 검사
+  function validateSQLiteForm(payload) {
+    if (!payload.host) {
+      return { isValid: false, message: "SQLite 파일 경로를 입력해주세요." };
+    }
+
+    // 파일 경로 형식 검사 (간단한 검사)
+    const filePath = payload.host.trim();
+    if (!filePath.includes('.db') && !filePath.includes('.sqlite') && !filePath.includes('.sqlite3')) {
+      return { 
+        isValid: false, 
+        message: "SQLite 파일 경로는 .db, .sqlite, .sqlite3 확장자를 포함해야 합니다." 
+      };
+    }
+
+    return { isValid: true };
+  }
+
+  // PostgreSQL 유효성 검사
+  function validatePostgreSQLForm(payload) {
+    if (!payload.host) {
+      return { isValid: false, message: "PostgreSQL 서버 호스트를 입력해주세요." };
+    }
+    if (!payload.database_name) {
+      return { isValid: false, message: "PostgreSQL 데이터베이스명을 입력해주세요." };
+    }
+    if (!payload.username) {
+      return { isValid: false, message: "PostgreSQL 사용자명을 입력해주세요." };
+    }
+    if (!payload.port || payload.port < 1 || payload.port > 65535) {
+      return { isValid: false, message: "유효한 포트 번호(1-65535)를 입력해주세요." };
+    }
+
+    // 신규 등록 시 비밀번호 필수
+    const isNewRecord = !formId.value;
+    if (isNewRecord && (!formPassword.value || formPassword.value.trim() === "")) {
+      return { isValid: false, message: "PostgreSQL 신규 등록 시 비밀번호는 필수입니다." };
+    }
+
+    return { isValid: true };
+  }
+
+  // MySQL 유효성 검사
+  function validateMySQLForm(payload) {
+    if (!payload.host) {
+      return { isValid: false, message: "MySQL 서버 호스트를 입력해주세요." };
+    }
+    if (!payload.database_name) {
+      return { isValid: false, message: "MySQL 데이터베이스명을 입력해주세요." };
+    }
+    if (!payload.username) {
+      return { isValid: false, message: "MySQL 사용자명을 입력해주세요." };
+    }
+    if (!payload.port || payload.port < 1 || payload.port > 65535) {
+      return { isValid: false, message: "유효한 포트 번호(1-65535)를 입력해주세요." };
+    }
+
+    // 신규 등록 시 비밀번호 필수
+    const isNewRecord = !formId.value;
+    if (isNewRecord && (!formPassword.value || formPassword.value.trim() === "")) {
+      return { isValid: false, message: "MySQL 신규 등록 시 비밀번호는 필수입니다." };
+    }
+
+    return { isValid: true };
   }
 
   // 목록 로드
@@ -332,15 +607,10 @@
         priority: formPriority.value,
       };
 
-      if (
-        !payload.name ||
-        !payload.display_name ||
-        !payload.db_type ||
-        !payload.host ||
-        (payload.db_type !== 'sqlite' && !payload.database_name) ||
-        !payload.username
-      ) {
-        swToast("필수 항목을 모두 입력하세요.", 'warning');
+      // DB 타입별 유효성 검사
+      const validationResult = validateFormByDbType(payload);
+      if (!validationResult.isValid) {
+        swToast(validationResult.message, 'warning');
         return;
       }
 
@@ -471,6 +741,23 @@
   // DB 타입 변경 이벤트 리스너
   formDbType && formDbType.addEventListener("change", handleDbTypeChange);
   
+  // 파일 선택기 이벤트 리스너
+  btnBrowseFile && btnBrowseFile.addEventListener("click", () => {
+    filePicker && filePicker.click();
+  });
+  
+  filePicker && filePicker.addEventListener("change", (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (formHost) {
+        // 웹 환경에서는 실제 파일 경로를 얻을 수 없으므로 파일명만 표시
+        formHost.value = file.name;
+        formHost.setAttribute('title', `선택된 파일: ${file.name}`);
+      }
+      swToast(`파일 선택됨: ${file.name}`, 'info');
+    }
+  });
+  
   btnRefresh &&
     btnRefresh.addEventListener("click", () => {
       state.page = 1;
@@ -524,21 +811,8 @@
     formEnvironment.value = "development";
     formPriority.value = "medium";
     
-    // 초기 상태로 UI 리셋
-    if (formHost) {
-      formHost.placeholder = "호스트 주소";
-      formHost.removeAttribute('title');
-    }
-    if (formPort) {
-      formPort.disabled = false;
-    }
-    if (formDatabaseName) {
-      formDatabaseName.disabled = false;
-      formDatabaseName.placeholder = "데이터베이스명";
-    }
-    if (hostHelp) {
-      hostHelp.textContent = "데이터베이스 서버의 호스트 주소를 입력하세요.";
-    }
+    // 기본 UI 상태로 리셋
+    configureDefaultUI();
     
     document.getElementById("dbModalTitle").textContent = "새 데이터베이스 추가";
   }
