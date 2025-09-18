@@ -181,47 +181,62 @@
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">호스트</label>
-                  <input class="form-control" id="form-host" required />
+                  <div class="input-group">
+                    <input class="form-control" id="form-host" required />
+                    <button class="btn btn-outline-secondary" type="button" id="btn-browse-file" style="display: none;">
+                      📁 찾아보기
+                    </button>
+                  </div>
+                  <input type="file" id="file-picker" accept=".db,.sqlite,.sqlite3" style="display: none;" />
                   <div class="form-text" id="host-help">SQLite의 경우 파일 경로를 입력하세요.</div>
                 </div>
                 <div class="col-md-3">
-                  <label class="form-label">포트</label>
+                  <label class="form-label">포트 <span class="text-danger" id="port-required">*</span></label>
                   <input
                     type="number"
                     class="form-control"
                     id="form-port"
                     value="5432"
+                    min="0"
+                    max="65535"
                   />
+                  <div class="form-text" id="port-help">기본 포트가 자동 설정됩니다.</div>
                 </div>
                 <div class="col-md-3">
-                  <label class="form-label">DB명</label>
+                  <label class="form-label">DB명 <span class="text-danger" id="dbname-required">*</span></label>
                   <input
                     class="form-control"
                     id="form-database_name"
                     required
                   />
+                  <div class="form-text" id="dbname-help">연결할 데이터베이스 이름을 입력하세요.</div>
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">사용자명</label>
+                  <label class="form-label">사용자명 <span class="text-danger" id="username-required">*</span></label>
                   <input class="form-control" id="form-username" required />
+                  <div class="form-text" id="username-help">데이터베이스 접속 사용자명을 입력하세요.</div>
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">비밀번호</label>
+                  <label class="form-label">비밀번호 <span class="text-danger" id="password-required">*</span></label>
                   <input
                     type="password"
                     class="form-control"
                     id="form-password"
                     placeholder="수정 시 공란이면 기존 비밀번호 유지"
                   />
-                  <div class="form-text">수정 시 비밀번호를 비워두면 기존 비밀번호를 유지합니다.</div>
+                  <div class="form-text" id="password-help">수정 시 비밀번호를 비워두면 기존 비밀번호를 유지합니다.</div>
                 </div>
                 <div class="col-md-4">
-                  <label class="form-label">SSL 모드</label>
-                  <input
-                    class="form-control"
-                    id="form-ssl_mode"
-                    value="require"
-                  />
+                  <label class="form-label">SSL 모드 <span class="text-muted" id="ssl-optional">(선택)</span></label>
+                  <select class="form-select" id="form-ssl_mode">
+                    <option value="disable">disable - SSL 사용 안함</option>
+                    <option value="allow">allow - SSL 허용</option>
+                    <option value="prefer">prefer - SSL 선호</option>
+                    <option value="require" selected>require - SSL 필수</option>
+                    <option value="verify-ca">verify-ca - CA 인증서 검증</option>
+                    <option value="verify-full">verify-full - 전체 검증</option>
+                  </select>
+                  <div class="form-text" id="ssl-help">SSL/TLS 연결 보안 수준을 선택하세요.</div>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">환경</label>
