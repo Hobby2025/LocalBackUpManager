@@ -529,10 +529,10 @@
 
 작업 내용:
 
-- [ ] DB 유형별 연결 테스트/E2E 백업 시나리오 케이스 작성
-- [ ] 성능/부하 테스트(덤프 시간/파일 크기/압축률)
-- [ ] 회귀 테스트(기존 PostgreSQL 기능 영향 검증)
-- [ ] 운영/로컬 환경별 실행 가이드 점검
+- [x] DB 유형별 연결 테스트/E2E 백업 시나리오 케이스 작성
+- [x] 성능/부하 테스트(덤프 시간/파일 크기/압축률)
+- [x] 회귀 테스트(기존 PostgreSQL 기능 영향 검증)
+- [x] 운영/로컬 환경별 실행 가이드 점검
 ```
 
 ### Phase 9: 웹 UI / UX 개선
@@ -599,33 +599,6 @@
 
 - `[PhaseX] 기능명 - 간단한 설명`
 - 예: `[Phase1] BackupEngine - pg_dump 기반 기본 백업 기능 구현`
-
-### 브랜치 명명 규칙
-
-- `feature/issue-{number}-{brief-description}`
-- `bugfix/issue-{number}-{brief-description}`
-- `hotfix/issue-{number}-{brief-description}`
-
-### 커밋 메시지 규칙
-```
-
-type(scope): 간단한 설명
-
-상세 설명 (선택사항)
-
-Fixes #이슈번호
-
-```
-
-**타입**:
-
-- `feat`: 새로운 기능
-- `fix`: 버그 수정
-- `docs`: 문서 수정
-- `style`: 코드 스타일 변경
-- `refactor`: 리팩토링
-- `test`: 테스트 추가/수정
-- `chore`: 빌드 프로세스 또는 보조 도구 변경
 
 이 가이드를 통해 체계적이고 효율적인 프로젝트 관리가 가능합니다.
 ```
