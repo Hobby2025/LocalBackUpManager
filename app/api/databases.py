@@ -6,6 +6,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import datetime
 import logging
 
 from app.database import get_db, Database, get_all_databases, get_database_by_id, create_database_record
@@ -329,6 +330,7 @@ async def test_database_connection(
 
         # 실제 연결 테스트 수행 (현재 password_encrypted는 평문 비밀번호 사용 가정)
         success, elapsed_ms, error_msg = db_manager.test_connection(
+            db_type=database.db_type,
             host=database.host,
             port=database.port,
             dbname=database.database_name,
@@ -409,4 +411,105 @@ async def reload_databases_config():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="설정 리로드 중 오류가 발생했습니다."
+        )
+
+
+# =============================================================================
+# 연결 풀 관리 API
+# =============================================================================
+
+@router.post("/{database_id}/init-pool", response_model=dict)
+async def init_database_pool(
+    database_id: str,
+    db: Session = Depends(get_db)
+):
+    """데이터베이스 연결 풀 초기화"""
+    try:
+        database = get_database_by_id(db, database_id)
+        if not database:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="데이터베이스를 찾을 수 없습니다."
+            )
+
+        # 연결 풀 생성
+        pool = db_manager.get_or_create_pool(
+            database_id=database_id,
+            db_type=database.db_type,
+            host=database.host,
+            port=database.port,
+            dbname=database.database_name,
+            user=database.username,
+            password=database.password_encrypted,
+            sslmode=database.ssl_mode,
+            minconn=1,
+            maxconn=5,
+        )
+
+        return {
+            "database_id": database_id,
+            "status": "success",
+            "message": f"{database.db_type} 연결 풀이 초기화되었습니다.",
+            "pool_type": type(pool).__name__
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"연결 풀 초기화 오류 (DB {database_id}): {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="연결 풀 초기화 중 오류가 발생했습니다."
+        )
+
+
+@router.delete("/{database_id}/close-pool", response_model=dict)
+async def close_database_pool(
+    database_id: str,
+    db: Session = Depends(get_db)
+):
+    """데이터베이스 연결 풀 종료"""
+    try:
+        database = get_database_by_id(db, database_id)
+        if not database:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="데이터베이스를 찾을 수 없습니다."
+            )
+
+        # 연결 풀 종료
+        db_manager.close_pool(database_id)
+
+        return {
+            "database_id": database_id,
+            "status": "success",
+            "message": f"{database.db_type} 연결 풀이 종료되었습니다."
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"연결 풀 종료 오류 (DB {database_id}): {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="연결 풀 종료 중 오류가 발생했습니다."
+        )
+
+
+@router.get("/pool-status", response_model=dict)
+async def get_pool_status():
+    """모든 연결 풀 상태 조회"""
+    try:
+        status_summary = db_manager.get_status_summary()
+        return {
+            "status": "success",
+            "summary": status_summary,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"풀 상태 조회 오류: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="풀 상태 조회 중 오류가 발생했습니다."
         )
