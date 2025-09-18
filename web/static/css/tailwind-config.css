@@ -1,0 +1,321 @@
+/* Tailwind CSS 커스텀 설정
+ * 기존 common.css의 디자인 토큰을 Tailwind 방식으로 확장
+ * CDN 방식에서 사용할 커스텀 CSS 변수 및 유틸리티 클래스
+ */
+
+/* Tailwind CSS 기본 레이어 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 기존 common.css 변수를 Tailwind와 호환되도록 확장 */
+@layer base {
+  :root {
+    /* 기존 색상 팔레트를 Tailwind 방식으로 확장 */
+    --color-primary-50: #eff6ff;
+    --color-primary-100: #dbeafe;
+    --color-primary-200: #bfdbfe;
+    --color-primary-300: #93c5fd;
+    --color-primary-400: #60a5fa;
+    --color-primary-500: #0d6efd; /* 기존 --ui-primary */
+    --color-primary-600: #0b5ed7;
+    --color-primary-700: #0a58ca;
+    --color-primary-800: #084298;
+    --color-primary-900: #052c65;
+
+    /* 성공 색상 */
+    --color-success-50: #f0fdf4;
+    --color-success-100: #dcfce7;
+    --color-success-200: #bbf7d0;
+    --color-success-300: #86efac;
+    --color-success-400: #4ade80;
+    --color-success-500: #198754; /* 기존 --ui-success */
+    --color-success-600: #16a34a;
+    --color-success-700: #15803d;
+    --color-success-800: #166534;
+    --color-success-900: #14532d;
+
+    /* 위험 색상 */
+    --color-danger-50: #fef2f2;
+    --color-danger-100: #fee2e2;
+    --color-danger-200: #fecaca;
+    --color-danger-300: #fca5a5;
+    --color-danger-400: #f87171;
+    --color-danger-500: #dc3545; /* 기존 --ui-danger */
+    --color-danger-600: #dc2626;
+    --color-danger-700: #b91c1c;
+    --color-danger-800: #991b1b;
+    --color-danger-900: #7f1d1d;
+
+    /* 경고 색상 */
+    --color-warning-50: #fffbeb;
+    --color-warning-100: #fef3c7;
+    --color-warning-200: #fde68a;
+    --color-warning-300: #fcd34d;
+    --color-warning-400: #fbbf24;
+    --color-warning-500: #ffc107; /* 기존 --ui-warning */
+    --color-warning-600: #d97706;
+    --color-warning-700: #b45309;
+    --color-warning-800: #92400e;
+    --color-warning-900: #78350f;
+
+    /* 정보 색상 */
+    --color-info-50: #f0f9ff;
+    --color-info-100: #e0f2fe;
+    --color-info-200: #bae6fd;
+    --color-info-300: #7dd3fc;
+    --color-info-400: #38bdf8;
+    --color-info-500: #0dcaf0; /* 기존 --ui-info */
+    --color-info-600: #0284c7;
+    --color-info-700: #0369a1;
+    --color-info-800: #075985;
+    --color-info-900: #0c4a6e;
+
+    /* 회색 계열 */
+    --color-gray-50: #f8fafc;
+    --color-gray-100: #f1f5f9;
+    --color-gray-200: #e2e8f0;
+    --color-gray-300: #cbd5e1;
+    --color-gray-400: #94a3b8;
+    --color-gray-500: #6c757d; /* 기존 --ui-muted */
+    --color-gray-600: #475569;
+    --color-gray-700: #334155;
+    --color-gray-800: #1e293b;
+    --color-gray-900: #0f172a;
+
+    /* 폰트 크기 (기존 common.css 호환) */
+    --font-size-xs: 0.75rem;      /* 12px */
+    --font-size-sm: 0.9375rem;    /* 15px - 기존 --ui-font-size-sm */
+    --font-size-base: 1.0625rem;  /* 17px - 기존 --ui-font-size-base */
+    --font-size-lg: 1.125rem;     /* 18px - 기존 --ui-font-size-lg */
+    --font-size-xl: 1.25rem;      /* 20px - 기존 --ui-font-size-title */
+    --font-size-2xl: 1.3125rem;   /* 21px - 기존 --ui-font-size-kpi */
+    --font-size-3xl: 1.5rem;      /* 24px */
+    --font-size-4xl: 2rem;        /* 32px */
+
+    /* 폰트 두께 (기존 common.css 호환) */
+    --font-weight-normal: 400;    /* 기존 --ui-weight-base */
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;  /* 기존 --ui-weight-strong */
+    --font-weight-bold: 700;      /* 기존 --ui-weight-title */
+
+    /* 간격 (Tailwind 기본값과 호환) */
+    --spacing-1: 0.25rem;   /* 4px */
+    --spacing-2: 0.5rem;    /* 8px */
+    --spacing-3: 0.75rem;   /* 12px */
+    --spacing-4: 1rem;      /* 16px - 기존 --ui-card-padding */
+    --spacing-5: 1.25rem;   /* 20px */
+    --spacing-6: 1.5rem;    /* 24px */
+    --spacing-8: 2rem;      /* 32px */
+    --spacing-10: 2.5rem;   /* 40px */
+    --spacing-12: 3rem;     /* 48px */
+  }
+
+  /* 다크 모드 색상 확장 */
+  :root[data-bs-theme="dark"] {
+    --color-gray-50: #0f172a;
+    --color-gray-100: #1e293b;
+    --color-gray-200: #334155;
+    --color-gray-300: #475569;
+    --color-gray-400: #64748b;
+    --color-gray-500: #b8c0c7; /* 기존 --ui-muted 다크모드 */
+    --color-gray-600: #cbd5e1;
+    --color-gray-700: #e2e8f0;
+    --color-gray-800: #f1f5f9;
+    --color-gray-900: #e9ecef; /* 기존 --ui-text 다크모드 */
+  }
+}
+
+/* Tailwind 컴포넌트 레이어 - 기존 common.css 스타일을 Tailwind 방식으로 재정의 */
+@layer components {
+  /* 기존 .ui-title 클래스를 Tailwind 방식으로 */
+  .tw-title {
+    @apply text-xl font-bold text-gray-900 dark:text-gray-100;
+  }
+
+  /* 기존 .ui-strong 클래스 */
+  .tw-strong {
+    @apply font-semibold;
+  }
+
+  /* 기존 .ui-muted 클래스 */
+  .tw-muted {
+    @apply text-gray-500;
+  }
+
+  /* 기존 .ui-kpi 클래스 */
+  .tw-kpi {
+    @apply text-2xl font-semibold;
+  }
+
+  /* 카드 컴포넌트 (Bootstrap과 호환) */
+  .tw-card {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700;
+  }
+
+  .tw-card-header {
+    @apply px-4 py-3 border-b border-gray-200 dark:border-gray-700 font-semibold text-sm bg-gray-50 dark:bg-gray-700;
+  }
+
+  .tw-card-body {
+    @apply p-4;
+  }
+
+  .tw-card-title {
+    @apply text-lg font-semibold mb-2;
+  }
+
+  /* 버튼 컴포넌트 */
+  .tw-btn {
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .tw-btn-primary {
+    @apply tw-btn bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500;
+  }
+
+  .tw-btn-secondary {
+    @apply tw-btn bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500;
+  }
+
+  .tw-btn-success {
+    @apply tw-btn bg-green-600 text-white hover:bg-green-700 focus:ring-green-500;
+  }
+
+  .tw-btn-danger {
+    @apply tw-btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+  }
+
+  .tw-btn-outline {
+    @apply tw-btn border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-500;
+  }
+
+  .tw-btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .tw-btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  /* 배지 컴포넌트 */
+  .tw-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+
+  .tw-badge-success {
+    @apply tw-badge bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+  }
+
+  .tw-badge-danger {
+    @apply tw-badge bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+  }
+
+  .tw-badge-warning {
+    @apply tw-badge bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+  }
+
+  .tw-badge-info {
+    @apply tw-badge bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
+  }
+
+  .tw-badge-secondary {
+    @apply tw-badge bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200;
+  }
+
+  /* 테이블 컴포넌트 */
+  .tw-table {
+    @apply w-full text-sm text-left text-gray-900 dark:text-gray-100;
+  }
+
+  .tw-table-header {
+    @apply bg-gray-50 dark:bg-gray-700;
+  }
+
+  .tw-table-header th {
+    @apply px-4 py-3 font-semibold text-gray-700 dark:text-gray-200 border-b border-gray-200 dark:border-gray-600;
+  }
+
+  .tw-table-body tr {
+    @apply border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800;
+  }
+
+  .tw-table-body td {
+    @apply px-4 py-3 align-middle;
+  }
+
+  /* 폼 컴포넌트 */
+  .tw-form-label {
+    @apply block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1;
+  }
+
+  .tw-form-input {
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  }
+
+  .tw-form-select {
+    @apply tw-form-input pr-8 bg-no-repeat bg-right;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-size: 1.5em 1.5em;
+  }
+
+  .tw-form-text {
+    @apply text-sm text-gray-500 dark:text-gray-400 mt-1;
+  }
+
+  /* 내비게이션 컴포넌트 */
+  .tw-navbar {
+    @apply bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700;
+  }
+
+  .tw-navbar-brand {
+    @apply text-lg font-semibold text-gray-900 dark:text-gray-100;
+  }
+
+  .tw-nav-link {
+    @apply px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200;
+  }
+
+  .tw-nav-link-active {
+    @apply tw-nav-link text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-md;
+  }
+}
+
+/* 유틸리티 레이어 - 추가 커스텀 유틸리티 */
+@layer utilities {
+  /* 한국어 폰트 최적화 */
+  .font-korean {
+    font-family: 'Simple', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', Arial, sans-serif;
+  }
+
+  /* 기존 common.css의 폰트 크기 유틸리티 */
+  .text-base-custom { font-size: var(--font-size-base); }
+  .text-sm-custom { font-size: var(--font-size-sm); }
+  .text-lg-custom { font-size: var(--font-size-lg); }
+  .text-xl-custom { font-size: var(--font-size-xl); }
+  .text-2xl-custom { font-size: var(--font-size-2xl); }
+
+  /* 라인 높이 최적화 */
+  .leading-relaxed-ko {
+    line-height: 1.6; /* 한국어 가독성 최적화 */
+  }
+
+  /* 그림자 유틸리티 확장 */
+  .shadow-card {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+
+  .shadow-card-hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  /* 애니메이션 유틸리티 */
+  .transition-all-200 {
+    transition: all 0.2s ease-in-out;
+  }
+
+  .transition-colors-200 {
+    transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+  }
+}

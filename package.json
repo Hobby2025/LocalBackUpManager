@@ -1,0 +1,57 @@
+{
+  "name": "localbackupmanager-frontend",
+  "version": "1.0.0",
+  "description": "다중 DB 백업 시스템 프론트엔드 빌드 도구",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npm run build:css -- --watch",
+    "build": "npm run build:css",
+    "build:css": "postcss web/static/css/tailwind-input.css -o web/static/css/tailwind-output.css",
+    "build:css:prod": "NODE_ENV=production postcss web/static/css/tailwind-input.css -o web/static/css/tailwind-output.css",
+    "watch": "npm run build:css -- --watch",
+    "clean": "rm -f web/static/css/tailwind-output.css",
+    "analyze": "npm run build:css:prod && ls -la web/static/css/",
+    "test:css": "stylelint 'web/static/css/**/*.css'",
+    "format:css": "prettier --write 'web/static/css/**/*.css'"
+  },
+  "keywords": [
+    "tailwindcss",
+    "postcss",
+    "css",
+    "frontend",
+    "backup-system"
+  ],
+  "author": "LocalBackUpManager Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@fullhuman/postcss-purgecss": "^5.0.0",
+    "@tailwindcss/forms": "^0.5.7",
+    "@tailwindcss/typography": "^0.5.10",
+    "autoprefixer": "^10.4.16",
+    "cssnano": "^6.0.1",
+    "postcss": "^8.4.32",
+    "postcss-cli": "^11.0.0",
+    "prettier": "^3.1.0",
+    "stylelint": "^16.0.0",
+    "stylelint-config-standard": "^36.0.0",
+    "tailwindcss": "^3.3.6"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie 11"
+  ],
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/LocalBackUpManager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/LocalBackUpManager/issues"
+  },
+  "homepage": "https://github.com/your-org/LocalBackUpManager#readme"
+}
