@@ -807,7 +807,51 @@
       swToast(`파일 선택됨: ${file.name}`, 'info');
     }
   });
-  
+
+  btnRefresh &&
+  // 초기 로드
+  document.addEventListener("DOMContentLoaded", () => {
+    loadList();
+    loadTemplates();
+    checkUrlTemplate();
+    
+    // 접근성 기능 초기화
+    initializeAccessibility();
+  });
+
+  // 접근성 기능 초기화
+  function initializeAccessibility() {
+    // 테이블 키보드 네비게이션 설정
+    const table = document.getElementById('db-table');
+    if (table) {
+      DatabaseUtils.setupTableKeyboardNavigation(table);
+    }
+    
+    // 모달 키보드 트랩 설정
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+      DatabaseUtils.setupModalKeyboardTrap(modal);
+    });
+    
+    // 폼 접근성 개선
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+      DatabaseUtils.enhanceFormAccessibility(form);
+    });
+    
+    // 템플릿 카드 키보드 네비게이션
+    setupTemplateCardNavigation();
+  }
+
+  // 템플릿 카드 키보드 네비게이션 설정
+  function setupTemplateCardNavigation() {
+    const templateCards = document.querySelectorAll('.template-select-card');
+    templateCards.forEach(card => {
+      DatabaseUtils.setupKeyboardNavigation(card, function() {
+        card.click();
+      });
+    });
+  }
   btnRefresh &&
     btnRefresh.addEventListener("click", () => {
       state.page = 1;
